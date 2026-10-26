@@ -1,0 +1,28 @@
+name: seavis
+description: "A new Flutter project for SeaVis marine monitoring."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Tambahkan package berikut jika ingin mengaktifkan kamera & galeri:
+  # image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Pastikan folder 'assets/images/' sudah dibuat di root project
+  assets:
+    - assets/images/
