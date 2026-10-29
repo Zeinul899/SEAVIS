@@ -1,5 +1,5 @@
 name: seavis
-description: "A new Flutter project for SeaVis marine monitoring."
+description: "Seagrass Guard (SEAVIS) Citizen Science & Carbon Monitoring"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -11,9 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-
-  # Tambahkan package berikut jika ingin mengaktifkan kamera & galeri:
-  # image_picker: ^1.1.2
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:
@@ -23,6 +21,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Pastikan folder 'assets/images/' sudah dibuat di root project
   assets:
     - assets/images/

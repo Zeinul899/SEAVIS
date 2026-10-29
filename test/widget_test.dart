@@ -2,15 +2,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:seavis/main.dart';
 
 void main() {
-  testWidgets('SEAVIS fisherman landing page smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const SeavisApp());
+  testWidgets('Seagrass Guard (SEAVIS) smoke test', (WidgetTester tester) async {
+    await tester.pumpWidget(const SeagrassGuardApp());
     await tester.pumpAndSettle();
 
-    // Pastikan Landing Page Nelayan tampil
-    expect(find.text('SeaVis Nelayan'), findsOneWidget);
-    expect(find.text('Saldo Siap Ditarik'), findsOneWidget);
-    expect(find.text('Kirim Foto'), findsOneWidget);
-    expect(find.text('Tarik Tunai'), findsWidgets);
-    expect(find.text('Tanya AI'), findsOneWidget);
+    // Pastikan 4 tab navigasi utama Seagrass Guard tampil
+    expect(find.text('Lapor Lamun'), findsOneWidget);
+    expect(find.text('Real-Time Maps'), findsOneWidget);
+    expect(find.text('ESP32 Air & C'), findsOneWidget);
+    expect(find.text('Data Sheets'), findsOneWidget);
+
+    // Pastikan tahap 1 stepper pelaporan nelayan aktif
+    expect(find.text('Tahap 1: Foto Lamun & Info Pantai'), findsOneWidget);
   });
 }
