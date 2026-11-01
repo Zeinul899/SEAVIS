@@ -1024,112 +1024,40 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // HELPER WIDGETS
-  // ---------------------------------------------------------------------------
-  Widget _buildTextGuideItem(String number, String title, String desc) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 20,
-            height: 20,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Color(0xFF0F172A),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              number,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: Color(0xFF1E293B),
-                  height: 1.35,
-                ),
-                children: [
-                  TextSpan(
-                    text: '$title: ',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  TextSpan(text: desc),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // BUILD UTAMA (100% PERSIS SESUAI SKETSA MENTAH CANVA: BIRU LAUT, BANNER & CARD BESAR)
-  // TIDAK ADA TAB LAIN / BOTTOM NAV BAR
+  // BUILD UTAMA (SIMPEL & BERSIH, SESUAI SKETSA MENTAH CANVA TANPA AI SLOP)
   // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Background warna biru laut / toska muda persis sesuai canvas Canva (#93F8F2)
       backgroundColor: const Color(0xFF93F8F2),
       appBar: null,
-      bottomNavigationBar: null, // Tab lain dihapus agar dasboard fokus & identik Canva
+      bottomNavigationBar: null,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ---------------------------------------------------------------
-              // 1. HEADER PROFIL (Sesuai Sketsa Atas Canva)
-              // Lingkaran Putih di Kiri + Nama Pengguna & Email
-              // ---------------------------------------------------------------
+              // 1. HEADER PROFIL (Avatar Lingkaran Putih di Kiri + Nama & Email)
               GestureDetector(
                 onTap: _openProfilePage,
                 behavior: HitTestBehavior.opaque,
                 child: Row(
                   children: [
-                    // Lingkaran Putih Foto Profil (Bisa ditekan ke Profile Page)
                     Container(
-                      width: 52,
-                      height: 52,
+                      width: 48,
+                      height: 48,
                       decoration: const BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 6,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
                       ),
-                      child: Center(
-                        child: Text(
-                          _fishermanName.isNotEmpty
-                              ? _fishermanName[0].toUpperCase()
-                              : 'A',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
+                      child: const Icon(
+                        Icons.person,
+                        size: 26,
+                        color: Color(0xFF1E293B),
                       ),
                     ),
-                    const SizedBox(width: 14),
-
-                    // Teks Nama & Email Sesuai Login
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1137,10 +1065,9 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                           Text(
                             '${_getGreeting()}, $_fishermanName',
                             style: const TextStyle(
-                              fontSize: 16.5,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF0F172A),
-                              letterSpacing: -0.2,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -1149,24 +1076,9 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                             style: const TextStyle(
                               fontSize: 13,
                               color: Color(0xFF334155),
-                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
-                      ),
-                    ),
-
-                    // Indikator panah halus ke profil
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.chevron_right_rounded,
-                        size: 20,
-                        color: Color(0xFF1E293B),
                       ),
                     ),
                   ],
@@ -1175,259 +1087,169 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
 
               const SizedBox(height: 18),
 
-              // ---------------------------------------------------------------
-              // 2. BANNER SALDO & CASH OUT (Sesuai Sketsa Banner Canva: #BCE062)
-              // Kiri: Ikon Dompet + 540.000 | Kanan: Cash Out + Ikon ATM
-              // ---------------------------------------------------------------
+              // 2. BANNER SALDO & CASH OUT (#BCE062)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFBCE062), // Warna lime green Canva
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+                  color: const Color(0xFFBCE062),
+                  borderRadius: BorderRadius.circular(18),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Kiri: Ikon Dompet + Nilai Saldo Rp 540.000
                     Row(
                       children: [
                         const Icon(
-                          Icons.account_balance_wallet_rounded,
-                          size: 32,
+                          Icons.account_balance_wallet_outlined,
+                          size: 28,
                           color: Color(0xFF1E293B),
                         ),
                         const SizedBox(width: 10),
                         Text(
                           'Rp ${_formatCurrency(_currentBalance)}',
                           style: const TextStyle(
-                            fontSize: 21,
-                            fontWeight: FontWeight.w900,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                             color: Color(0xFF1E293B),
-                            letterSpacing: -0.3,
                           ),
                         ),
                       ],
                     ),
-
-                    // Kanan: Teks "Cash Out" di atas ikon ATM (Sesuai Sketsa Canva)
                     GestureDetector(
                       onTap: _openCashOutModal,
                       behavior: HitTestBehavior.opaque,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Cash Out',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF1E293B),
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Icon(
-                              Icons.local_atm_rounded,
-                              size: 26,
+                      child: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Cash Out',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
                               color: Color(0xFF1E293B),
                             ),
-                          ],
-                        ),
+                          ),
+                          SizedBox(height: 2),
+                          Icon(
+                            Icons.local_atm,
+                            size: 24,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
 
-              // ---------------------------------------------------------------
-              // 3. TATA CARA PENGAMBILAN FOTO (TEKS LANGSUNG TANPA CARD)
-              // ---------------------------------------------------------------
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.checklist_rtl_rounded,
-                          size: 20,
-                          color: Color(0xFF0F172A),
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Tata Cara Pengambilan Foto yang Benar:',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
+              // 3. TATA CARA PENGAMBILAN FOTO (Teks Simpel, Tanpa Card)
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tata Cara Pengambilan Foto yang Benar:',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
                     ),
-                    const SizedBox(height: 12),
-
-                    // 4 Panduan Pengambilan Foto Ringkas Berupa Teks
-                    _buildTextGuideItem(
-                      '1',
-                      'Sudut 90 Derajat',
-                      'Arahkan kamera tegak lurus langsung dari atas permukaan padang lamun.',
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    '1. Sudut 90 Derajat (tegak lurus langsung dari atas)\n'
+                    '2. Saat Air Surut & Jernih (tidak keruh berlumpur)\n'
+                    '3. Daun & Rimpang Terlihat Jelas dan fokus\n'
+                    '4. Maksimal 5 Foto Per Hari (Rp 25.000 / Foto)',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.6,
+                      color: Color(0xFF334155),
                     ),
-                    _buildTextGuideItem(
-                      '2',
-                      'Saat Air Surut & Jernih',
-                      'Ambil saat kondisi air surut dangkal dan tidak keruh berlumpur tebal.',
-                    ),
-                    _buildTextGuideItem(
-                      '3',
-                      'Daun & Rimpang Terlihat Jelas',
-                      'Pastikan helai daun lamun dan substrat dasar perairan tampak fokus.',
-                    ),
-                    _buildTextGuideItem(
-                      '4',
-                      'Maksimal 5 Foto Per Hari',
-                      'Reward Rp 25.000 per foto disetujui otomatis masuk ke saldo.',
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
-              // ---------------------------------------------------------------
-              // 4. CARD 1 AJA & TRANSPARAN DENGAN LOGO FOTO (TIDAK PANJANG)
-              // ---------------------------------------------------------------
+              // 4. CARD 1 AJA & TRANSPARAN (Dibuat Simpel, Tidak AI Slop)
               GestureDetector(
                 onTap: _openUploadModal,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                    vertical: 24,
+                    vertical: 28,
                     horizontal: 18,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.38), // Card Transparan
-                    borderRadius: BorderRadius.circular(24),
+                    color: Colors.white.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.75),
-                      width: 2,
+                      color: Colors.white.withValues(alpha: 0.7),
+                      width: 1.5,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Logo Foto Berlingkar di Tengah Card
-                      Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.85),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: const Color(0xFF0F4C81),
-                            width: 2.5,
-                          ),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 6,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.add_a_photo_rounded,
-                          size: 32,
-                          color: Color(0xFF0F4C81),
-                        ),
+                      const Icon(
+                        Icons.add_a_photo_outlined,
+                        size: 46,
+                        color: Color(0xFF1E293B),
                       ),
                       const SizedBox(height: 12),
-
                       const Text(
                         'Upload Foto Padang Lamun',
                         style: TextStyle(
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                           color: Color(0xFF0F172A),
                         ),
                       ),
                       const SizedBox(height: 6),
-
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              'Rp 25.000 / Foto',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                          const Text(
+                            'Rp 25.000 / Foto',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const Text(
+                            '  •  ',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          ),
                           Text(
-                            'Sisa Kuota: $_remainingPhotos dari $_maxDailyPhotos',
+                            'Sisa kuota $_remainingPhotos dari $_maxDailyPhotos',
                             style: const TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF334155),
+                              color: Color(0xFF475569),
                             ),
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 16),
-
-                      // Tombol Aksi Ambil Foto Lamun Sekarang
-                      ElevatedButton.icon(
-                        onPressed: _openUploadModal,
-                        icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                        label: const Text(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 11,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
                           'Ambil Foto Lamun Sekarang',
                           style: TextStyle(
-                            fontSize: 13.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E293B),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 22,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          elevation: 2,
                         ),
                       ),
                     ],
