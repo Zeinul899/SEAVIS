@@ -24,8 +24,8 @@ void main() {
     expect(find.text('Mulailah Bersama SeaVis'), findsOneWidget);
     expect(find.text('Sistem Monitoring Ekosistem Lamun & Karbon Biru Pesisir'), findsOneWidget);
 
-    // 2. Verifikasi Indikator Koneksi Riil
-    expect(find.textContaining('Online'), findsWidgets);
+    // 2. Verifikasi Indikator Tulisan Online Dihapus Sesuai Permintaan
+    expect(find.textContaining('Online (Terhubung)'), findsNothing);
 
     // 3. Verifikasi Tab Masuk & Buat Akun
     expect(find.text('Masuk'), findsOneWidget);

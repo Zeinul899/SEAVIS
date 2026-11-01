@@ -20,7 +20,6 @@ class _LoginPageState extends State<LoginPage> {
 
   // Status Koneksi Riil (Mendeteksi sinyal nyata internet, bukan simulasi)
   bool _isOnline = true;
-  bool _isCheckingConnection = true;
   StreamSubscription<bool>? _networkSubscription;
 
   // Controllers Form Masuk (Kosong agar placeholder/hint terlihat jelas)
@@ -36,7 +35,6 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _isPasswordVisible = false;
   bool _isLoading = false;
-  bool _isSyncing = false;
   int _pendingCount = 0;
 
   // ---------------------------------------------------------------------------
@@ -70,7 +68,6 @@ class _LoginPageState extends State<LoginPage> {
         final wasOffline = !_isOnline;
         setState(() {
           _isOnline = isOnline;
-          _isCheckingConnection = false;
         });
 
         // Jika baru saja kembali online dari kondisi offline, lakukan auto-sync antrean
@@ -85,12 +82,10 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _checkRealNetworkStatus() async {
-    if (mounted) setState(() => _isCheckingConnection = true);
     final isOnline = await NetworkService.checkRealInternet();
     if (mounted) {
       setState(() {
         _isOnline = isOnline;
-        _isCheckingConnection = false;
       });
     }
   }
@@ -219,7 +214,7 @@ class _LoginPageState extends State<LoginPage> {
           final userName = localUser?.name ??
               (email == 'admin@seavis.id' ? 'Pak Joko Nelayan' : email.split('@').first);
 
-          _showToast('Login berhasil! Terverifikasi database online.');
+          _showToast('Login berhasil! Terverifikasi database.');
           _navigateToDashboard(
             UserModel(
               name: userName,
@@ -348,7 +343,7 @@ class _LoginPageState extends State<LoginPage> {
 
         if (!mounted) return;
 
-        _showToast('Akun berhasil dibuat dan tersimpan di database online!');
+        _showToast('Akun berhasil dibuat dan tersimpan di database!');
         _navigateToDashboard(
           savedAccount.copyWith(syncStatus: SyncStatus.synced),
         );
@@ -374,12 +369,10 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
-    setState(() => _isSyncing = true);
     final result = await OfflineSyncService.syncPendingAccountsToServer();
     await _checkPendingAccounts();
 
     if (mounted) {
-      setState(() => _isSyncing = false);
       if (result.isAllSuccess) {
         _showToast(
           isAuto
@@ -461,10 +454,6 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Status Koneksi Online / Offline Nyata
-                      _buildNetworkStatusHeader(),
-                      const SizedBox(height: 16),
-
                       // Teks Judul & Tagline di LUAR Card
                       _buildOutsideHeader(),
                       const SizedBox(height: 18),
@@ -563,108 +552,6 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ],
-    );
-  }
-
-  // Header status jaringan riil (Real Online/Offline Probe)
-  Widget _buildNetworkStatusHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
-      ),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        alignment: WrapAlignment.center,
-        spacing: 10,
-        runSpacing: 4,
-        children: [
-          // Indikator Status Nyata Jaringan
-          GestureDetector(
-            onTap: _isCheckingConnection ? null : _checkRealNetworkStatus,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isCheckingConnection)
-                  const SizedBox(
-                    width: 9,
-                    height: 9,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
-                  )
-                else
-                  Container(
-                    width: 9,
-                    height: 9,
-                    decoration: BoxDecoration(
-                      color: _isOnline ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: (_isOnline ? const Color(0xFF10B981) : const Color(0xFFF59E0B))
-                              .withValues(alpha: 0.6),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(width: 7),
-                Text(
-                  _isCheckingConnection
-                      ? 'Memeriksa Jaringan...'
-                      : (_isOnline ? 'Online (Terhubung)' : 'Offline (Tanpa Sinyal)'),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  _isCheckingConnection ? Icons.refresh : (_isOnline ? Icons.wifi : Icons.wifi_off_rounded),
-                  size: 13,
-                  color: Colors.white70,
-                ),
-              ],
-            ),
-          ),
-
-          // Tombol Sinkronisasi jika ada antrean akun offline
-          if (_pendingCount > 0) ...[
-            Container(width: 1, height: 12, color: Colors.white30),
-            GestureDetector(
-              onTap: (_isSyncing || !_isOnline) ? null : () => _triggerManualSync(),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _isSyncing
-                      ? const SizedBox(
-                          width: 10,
-                          height: 10,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : Icon(
-                          Icons.cloud_upload_outlined,
-                          size: 13,
-                          color: _isOnline ? const Color(0xFF38BDF8) : Colors.white38,
-                        ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Sync ($_pendingCount)',
-                    style: TextStyle(
-                      color: _isOnline ? const Color(0xFF38BDF8) : Colors.white38,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -904,7 +791,7 @@ class _LoginPageState extends State<LoginPage> {
                 child: Text(
                   _isOnline
                       ? 'Pendaftaran tersimpan langsung di cloud database terenkripsi.'
-                      : 'Data akun disimpan di HP saat offline & otomatis tersinkron saat online.',
+                      : 'Data akun disimpan di HP saat offline & otomatis tersinkron saat terhubung internet.',
                   style: const TextStyle(color: Colors.white70, fontSize: 11),
                 ),
               ),
