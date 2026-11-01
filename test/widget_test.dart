@@ -11,13 +11,14 @@ void main() {
     NetworkService.setMockStatus(null);
   });
 
-  testWidgets('SEAVIS Simple Transparent Login Page smoke test (Logo removed, Real Network)',
+  testWidgets('SEAVIS Login Page smoke test (Title, Tagline, Labels & Hints)',
       (WidgetTester tester) async {
     await tester.pumpWidget(const SeagrassGuardApp());
     await tester.pumpAndSettle();
 
-    // 1. Verifikasi Logo SeaVis telah dihapus sesuai permintaan
-    expect(find.text('Portal Nelayan & Observasi Laut'), findsNothing);
+    // 1. Verifikasi Judul & Tagline di Atas Tab
+    expect(find.text('SeaVis'), findsOneWidget);
+    expect(find.text('Monitoring Ekosistem Lamun & Karbon Biru Pesisir'), findsOneWidget);
 
     // 2. Verifikasi Indikator Koneksi Riil
     expect(find.textContaining('Online'), findsWidgets);
@@ -26,10 +27,16 @@ void main() {
     expect(find.text('Masuk'), findsOneWidget);
     expect(find.text('Buat Akun'), findsOneWidget);
 
-    // 4. Verifikasi Tombol Masuk Awal
+    // 4. Verifikasi Label & Hint Input Kolom 1 & 2
+    expect(find.text('Email Nelayan / ID Pengguna atau Nomor HP / Email'), findsOneWidget);
+    expect(find.text('Kata Sandi'), findsOneWidget);
+    expect(find.text('contoh: nelayan@seavis.id atau 08xxxxxxxxxx'), findsOneWidget);
+    expect(find.text('Masukkan kata sandi akun'), findsOneWidget);
+
+    // 5. Verifikasi Tombol Masuk Awal
     expect(find.text('Masuk ke SeaVis'), findsOneWidget);
 
-    // 5. Uji perpindahan ke Tab Buat Akun
+    // 6. Uji perpindahan ke Tab Buat Akun
     await tester.tap(find.text('Buat Akun'));
     await tester.pumpAndSettle();
 

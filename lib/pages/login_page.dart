@@ -23,11 +23,9 @@ class _LoginPageState extends State<LoginPage> {
   bool _isCheckingConnection = true;
   StreamSubscription<bool>? _networkSubscription;
 
-  // Controllers Form Masuk
-  final TextEditingController _loginEmailController =
-      TextEditingController(text: 'admin@seavis.id');
-  final TextEditingController _loginPasswordController =
-      TextEditingController(text: 'AdminSeavis123#');
+  // Controllers Form Masuk (Kosong agar placeholder/hint terlihat jelas)
+  final TextEditingController _loginEmailController = TextEditingController();
+  final TextEditingController _loginPasswordController = TextEditingController();
 
   // Controllers Form Buat Akun
   final TextEditingController _regNameController = TextEditingController();
@@ -447,7 +445,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          // 3. Konten Utama: Glassmorphism Card (Simpel, Tanpa Logo)
+          // 3. Konten Utama: Glassmorphism Card
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -489,9 +487,33 @@ class _LoginPageState extends State<LoginPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // Tab Switcher: "Masuk" vs "Buat Akun" (Langsung di atas, tanpa logo)
+                                  // 1. Judul & Tagline di Atas Tab "Masuk / Buat Akun" (Pilihan 1: Fokus Konservasi & Karbon)
+                                  const Text(
+                                    'SeaVis',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Monitoring Ekosistem Lamun & Karbon Biru Pesisir',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
+
+                                  // Tab Switcher: "Masuk" vs "Buat Akun"
                                   _buildTabSwitcher(),
-                                  const SizedBox(height: 22),
+                                  const SizedBox(height: 20),
 
                                   // Konten Form Sesuai Tab Terpilih
                                   if (_activeTab == 0)
@@ -680,28 +702,33 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // FORM MASUK (LOGIN) DENGAN BRUTE FORCE COOLDOWN
+  // FORM MASUK (LOGIN) DENGAN BRUTE FORCE COOLDOWN & LABEL INPUT
   // ---------------------------------------------------------------------------
   Widget _buildLoginForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Kolom 1: Email / No HP / ID
         _buildInputField(
+          label: 'Email Nelayan / ID Pengguna atau Nomor HP / Email',
+          hint: 'contoh: nelayan@seavis.id atau 08xxxxxxxxxx',
           controller: _loginEmailController,
-          hint: 'Email atau Nomor HP',
           icon: Icons.person_outline,
           keyboardType: TextInputType.emailAddress,
           enabled: !_isLockedOut,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
+
+        // Kolom 2: Kata Sandi
         _buildInputField(
+          label: 'Kata Sandi',
+          hint: 'Masukkan kata sandi akun',
           controller: _loginPasswordController,
-          hint: 'Kata Sandi',
           icon: Icons.lock_outline,
           isPassword: true,
           enabled: !_isLockedOut,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
 
         // Tombol Submit Masuk (Dikunci saat cooldown brute force)
         ElevatedButton(
@@ -772,25 +799,28 @@ class _LoginPageState extends State<LoginPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildInputField(
+          label: 'Nama Lengkap Nelayan',
+          hint: 'contoh: Pak Joko Santoso',
           controller: _regNameController,
-          hint: 'Nama Lengkap Nelayan',
           icon: Icons.badge_outlined,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _buildInputField(
+          label: 'Email Nelayan / ID Pengguna atau Nomor HP / Email',
+          hint: 'contoh: nelayan@seavis.id atau 08xxxxxxxxxx',
           controller: _regEmailController,
-          hint: 'Email Nelayan / No WhatsApp',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _buildInputField(
+          label: 'Kata Sandi Baru',
+          hint: 'Minimal 8 karakter (huruf besar, kecil, angka)',
           controller: _regPasswordController,
-          hint: 'Kata Sandi (Min 8 karakter, A-Z, 0-9)',
           icon: Icons.lock_outline,
           isPassword: true,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 20),
 
         // Tombol Submit Daftar
         ElevatedButton(
@@ -853,64 +883,106 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // HELPER WIDGET INPUT FIELD GLASSMORPHISM
+  // HELPER WIDGET INPUT FIELD DENGAN LABEL, HINT, DAN IKON
   // ---------------------------------------------------------------------------
   Widget _buildInputField({
-    required TextEditingController controller,
+    required String label,
     required String hint,
+    required TextEditingController controller,
     required IconData icon,
     bool isPassword = false,
     bool enabled = true,
     TextInputType keyboardType = TextInputType.text,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.28),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: enabled
-              ? Colors.white.withValues(alpha: 0.25)
-              : Colors.white.withValues(alpha: 0.1),
-        ),
-      ),
-      child: TextField(
-        controller: controller,
-        enabled: enabled,
-        obscureText: isPassword && !_isPasswordVisible,
-        keyboardType: keyboardType,
-        style: TextStyle(
-          color: enabled ? Colors.white : Colors.white38,
-          fontSize: 13,
-        ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.55),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label di atas kotak input
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
             fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            shadows: [
+              Shadow(
+                color: Colors.black45,
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
           ),
-          prefixIcon: Icon(
-            icon,
-            color: enabled ? Colors.white70 : Colors.white30,
-            size: 19,
-          ),
-          suffixIcon: isPassword
-              ? IconButton(
-                  icon: Icon(
-                    _isPasswordVisible
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    color: enabled ? Colors.white70 : Colors.white30,
-                    size: 19,
-                  ),
-                  onPressed: enabled
-                      ? () => setState(() => _isPasswordVisible = !_isPasswordVisible)
-                      : null,
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         ),
-      ),
+        const SizedBox(height: 6),
+
+        // Kotak Input Putih Bersih dengan Ikon & Hint Jelas
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: TextField(
+            controller: controller,
+            enabled: enabled,
+            obscureText: isPassword && !_isPasswordVisible,
+            keyboardType: keyboardType,
+            style: TextStyle(
+              color: enabled ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(
+                color: Color(0xFF94A3B8),
+                fontSize: 12.5,
+                fontWeight: FontWeight.normal,
+              ),
+              prefixIcon: Icon(
+                icon,
+                color: enabled ? const Color(0xFF0F4C81) : const Color(0xFFCBD5E1),
+                size: 20,
+              ),
+              suffixIcon: isPassword
+                  ? IconButton(
+                      icon: Icon(
+                        _isPasswordVisible
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        color: enabled ? const Color(0xFF64748B) : const Color(0xFFCBD5E1),
+                        size: 20,
+                      ),
+                      onPressed: enabled
+                          ? () => setState(() => _isPasswordVisible = !_isPasswordVisible)
+                          : null,
+                    )
+                  : null,
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.2),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF0F4C81), width: 1.8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
