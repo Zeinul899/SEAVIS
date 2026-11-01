@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/network_service.dart';
 import '../services/offline_sync_service.dart';
 import 'seavis_landing_page.dart';
 
@@ -17,8 +18,10 @@ class _LoginPageState extends State<LoginPage> {
   // Tab aktif: 0 = Masuk (Login), 1 = Buat Akun (Register)
   int _activeTab = 0;
 
-  // Status Koneksi (Bisa di-toggle manual oleh pengguna untuk simulasi offline/online nelayan)
+  // Status Koneksi Riil (Mendeteksi sinyal nyata internet, bukan simulasi)
   bool _isOnline = true;
+  bool _isCheckingConnection = true;
+  StreamSubscription<bool>? _networkSubscription;
 
   // Controllers Form Masuk
   final TextEditingController _loginEmailController =
@@ -53,10 +56,46 @@ class _LoginPageState extends State<LoginPage> {
   void initState() {
     super.initState();
     _checkPendingAccounts();
+    _initRealNetworkMonitoring();
+  }
+
+  void _initRealNetworkMonitoring() {
+    // Mulai pemantauan konektivitas nyata
+    NetworkService.startMonitoring();
+    _networkSubscription = NetworkService.onStatusChanged.listen((isOnline) {
+      if (mounted) {
+        final wasOffline = !_isOnline;
+        setState(() {
+          _isOnline = isOnline;
+          _isCheckingConnection = false;
+        });
+
+        // Jika baru saja kembali online dari kondisi offline, lakukan auto-sync antrean
+        if (wasOffline && isOnline && _pendingCount > 0) {
+          _triggerManualSync(isAuto: true);
+        }
+      }
+    });
+
+    // Pengecekan awal jaringan riil saat halaman dimuat
+    _checkRealNetworkStatus();
+  }
+
+  Future<void> _checkRealNetworkStatus() async {
+    if (mounted) setState(() => _isCheckingConnection = true);
+    final isOnline = await NetworkService.checkRealInternet();
+    if (mounted) {
+      setState(() {
+        _isOnline = isOnline;
+        _isCheckingConnection = false;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _networkSubscription?.cancel();
+    NetworkService.stopMonitoring();
     _loginEmailController.dispose();
     _loginPasswordController.dispose();
     _regNameController.dispose();
@@ -129,9 +168,12 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      if (!_isOnline) {
+      // Periksa konektivitas jaringan riil sebelum menentukan metode autentikasi
+      final isReallyOnline = await NetworkService.checkRealInternet();
+      setState(() => _isOnline = isReallyOnline);
+
+      if (!isReallyOnline) {
         // MODE OFFLINE: Autentikasi dengan Salted Hash lokal di HP
-        await Future.delayed(const Duration(milliseconds: 500));
         final localUser = await OfflineSyncService.authenticateLocally(
           email: email,
           password: password,
@@ -145,7 +187,7 @@ class _LoginPageState extends State<LoginPage> {
 
         if (localUser != null || isDemoValid) {
           _failedAttempts = 0;
-          _showToast('Masuk via Akun Lokal HP (Mode Offline)');
+          _showToast('Masuk via Akun Lokal HP (Mode Offline: Tidak ada koneksi internet)');
           _navigateToDashboard(
             localUser ?? UserModel(name: 'Pak Nelayan', email: email),
           );
@@ -154,9 +196,6 @@ class _LoginPageState extends State<LoginPage> {
         }
       } else {
         // MODE ONLINE: Hubungkan ke Database Server
-        await Future.delayed(const Duration(milliseconds: 700));
-
-        // Cek sinkronisasi antrean lokal jika ada
         if (_pendingCount > 0) {
           await OfflineSyncService.syncPendingAccountsToServer();
           _checkPendingAccounts();
@@ -241,9 +280,11 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      if (!_isOnline) {
+      final isReallyOnline = await NetworkService.checkRealInternet();
+      setState(() => _isOnline = isReallyOnline);
+
+      if (!isReallyOnline) {
         // 1. SIMPAN OFFLINE DENGAN SALTED HMAC-SHA256
-        await Future.delayed(const Duration(milliseconds: 600));
         final savedAccount = await OfflineSyncService.saveAccountOffline(
           name: name,
           email: email,
@@ -264,16 +305,16 @@ class _LoginPageState extends State<LoginPage> {
             ),
             title: const Row(
               children: [
-                Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 24),
+                Icon(Icons.wifi_off_rounded, color: Color(0xFFF59E0B), size: 24),
                 SizedBox(width: 8),
                 Text(
-                  'Akun Tersimpan Aman (Offline)',
+                  'Akun Tersimpan di HP (Offline)',
                   style: TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ],
             ),
             content: Text(
-              'Kata sandi Anda telah di-hash secara kriptografis (HMAC-SHA256) di penyimpanan lokal HP.\n\nAkun "$name" siap digunakan untuk masuk saat offline, dan akan otomatis disinkronkan ke database server saat ada koneksi internet.',
+              'Perangkat Anda saat ini offline (tidak ada sinyal internet di laut).\n\nAkun "$name" telah diamankan dengan enkripsi HMAC-SHA256 di memori HP, dan akan otomatis disinkronkan ke database server saat ada sinyal internet.',
               style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4),
             ),
             actions: [
@@ -293,7 +334,6 @@ class _LoginPageState extends State<LoginPage> {
         );
       } else {
         // 2. DAFTAR LANGSUNG ONLINE KE DATABASE
-        await Future.delayed(const Duration(milliseconds: 800));
         final savedAccount = await OfflineSyncService.saveAccountOffline(
           name: name,
           email: email,
@@ -312,8 +352,6 @@ class _LoginPageState extends State<LoginPage> {
     } catch (_) {
       _showToast('Gagal memproses pendaftaran.', isError: true);
     } finally {
-      // ignore: avoid_print
-      print('DEBUG: In FINALLY, mounted=$mounted');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -321,22 +359,38 @@ class _LoginPageState extends State<LoginPage> {
   // ---------------------------------------------------------------------------
   // SINKRONISASI MANUAL DARI HP KE DATABASE
   // ---------------------------------------------------------------------------
-  Future<void> _triggerManualSync() async {
-    if (!_isOnline) {
-      _showToast('Aktifkan status Online terlebih dahulu untuk sinkronisasi.', isError: true);
+  Future<void> _triggerManualSync({bool isAuto = false}) async {
+    final hasRealInternet = await NetworkService.checkRealInternet();
+    setState(() => _isOnline = hasRealInternet);
+
+    if (!hasRealInternet) {
+      if (!isAuto) {
+        _showToast('Tidak ada koneksi internet. Gagal menyinkronkan data ke server.', isError: true);
+      }
       return;
     }
 
     setState(() => _isSyncing = true);
     final result = await OfflineSyncService.syncPendingAccountsToServer();
     await _checkPendingAccounts();
-    setState(() => _isSyncing = false);
 
     if (mounted) {
-      if (result.successCount > 0) {
-        _showToast('${result.successCount} akun offline berhasil masuk ke database online!');
+      setState(() => _isSyncing = false);
+      if (result.isAllSuccess) {
+        _showToast(
+          isAuto
+              ? 'Terhubung kembali! Berhasil auto-sync ${result.successCount} akun ke database.'
+              : 'Berhasil menyinkronkan ${result.successCount} akun ke server database!',
+        );
+      } else if (result.failureCount > 0) {
+        _showToast(
+          'Sebagian sinkronisasi gagal: ${result.failureCount} akun belum terkirim.',
+          isError: true,
+        );
       } else {
-        _showToast('Tidak ada data akun offline yang perlu disinkronkan.');
+        if (!isAuto) {
+          _showToast('Tidak ada data akun offline yang perlu disinkronkan.');
+        }
       }
     }
   }
@@ -393,7 +447,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          // 3. Konten Utama: Glassmorphism Card
+          // 3. Konten Utama: Glassmorphism Card (Simpel, Tanpa Logo)
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -403,9 +457,9 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Status Koneksi Online / Offline Switcher di Atas Card
+                      // Status Koneksi Online / Offline Nyata
                       _buildNetworkStatusHeader(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
 
                       // KARTU FORM TRANSPARAN (FROSTED GLASS EFFECT)
                       ClipRRect(
@@ -428,18 +482,14 @@ class _LoginPageState extends State<LoginPage> {
                                 ),
                               ],
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 26.0),
                             child: Form(
                               key: _formKey,
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // Brand Icon & Title
-                                  _buildBrandHeader(),
-                                  const SizedBox(height: 20),
-
-                                  // Tab Switcher: "Masuk" vs "Buat Akun"
+                                  // Tab Switcher: "Masuk" vs "Buat Akun" (Langsung di atas, tanpa logo)
                                   _buildTabSwitcher(),
                                   const SizedBox(height: 22),
 
@@ -465,10 +515,10 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Header status jaringan (Online/Offline) dan tombol sinkronisasi
+  // Header status jaringan riil (Real Online/Offline Probe)
   Widget _buildNetworkStatusHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(30),
@@ -477,35 +527,43 @@ class _LoginPageState extends State<LoginPage> {
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         alignment: WrapAlignment.center,
-        spacing: 8,
+        spacing: 10,
         runSpacing: 4,
         children: [
-          // Toggle Online/Offline
+          // Indikator Status Nyata Jaringan
           GestureDetector(
-            onTap: () {
-              setState(() {
-                _isOnline = !_isOnline;
-              });
-              _showToast(
-                _isOnline
-                    ? 'Beralih ke Mode Online (Terkoneksi Database)'
-                    : 'Beralih ke Mode Offline (Data akun disimpan di HP)',
-              );
-            },
+            onTap: _isCheckingConnection ? null : _checkRealNetworkStatus,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _isOnline ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                    shape: BoxShape.circle,
+                if (_isCheckingConnection)
+                  const SizedBox(
+                    width: 9,
+                    height: 9,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                  )
+                else
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: _isOnline ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isOnline ? const Color(0xFF10B981) : const Color(0xFFF59E0B))
+                              .withValues(alpha: 0.6),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 7),
                 Text(
-                  _isOnline ? 'Online (Database Aktif)' : 'Offline (Simpan di HP)',
+                  _isCheckingConnection
+                      ? 'Memeriksa Jaringan...'
+                      : (_isOnline ? 'Online (Terhubung)' : 'Offline (Tanpa Sinyal)'),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11,
@@ -513,16 +571,20 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(Icons.swap_horiz, size: 14, color: Colors.white70),
+                Icon(
+                  _isCheckingConnection ? Icons.refresh : (_isOnline ? Icons.wifi : Icons.wifi_off_rounded),
+                  size: 13,
+                  color: Colors.white70,
+                ),
               ],
             ),
           ),
 
-          // Tombol Sinkronisasi jika ada akun pending
+          // Tombol Sinkronisasi jika ada antrean akun offline
           if (_pendingCount > 0) ...[
             Container(width: 1, height: 12, color: Colors.white30),
             GestureDetector(
-              onTap: _isSyncing ? null : _triggerManualSync,
+              onTap: (_isSyncing || !_isOnline) ? null : () => _triggerManualSync(),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -532,12 +594,16 @@ class _LoginPageState extends State<LoginPage> {
                           height: 10,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Icon(Icons.cloud_upload_outlined, size: 13, color: Color(0xFF38BDF8)),
+                      : Icon(
+                          Icons.cloud_upload_outlined,
+                          size: 13,
+                          color: _isOnline ? const Color(0xFF38BDF8) : Colors.white38,
+                        ),
                   const SizedBox(width: 4),
                   Text(
                     'Sync ($_pendingCount)',
-                    style: const TextStyle(
-                      color: Color(0xFF38BDF8),
+                    style: TextStyle(
+                      color: _isOnline ? const Color(0xFF38BDF8) : Colors.white38,
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                     ),
@@ -551,55 +617,15 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Header Brand Logo SeaVis
-  Widget _buildBrandHeader() {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.25),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
-          ),
-          child: const Icon(
-            Icons.sailing_rounded,
-            size: 36,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          'SEAVIS',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          'Portal Nelayan & Observasi Laut',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.85),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
   // Switcher Tab Masuk / Buat Akun
   Widget _buildTabSwitcher() {
     return Container(
-      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
       ),
+      padding: const EdgeInsets.all(4),
       child: Row(
         children: [
           Expanded(
@@ -799,26 +825,36 @@ class _LoginPageState extends State<LoginPage> {
 
         const SizedBox(height: 12),
 
-        // Catatan Keamanan
+        // Petunjuk Keamanan
         Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.25),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
           ),
-          child: Text(
-            !_isOnline
-                ? '✓ Password di-hash (HMAC-SHA256) di HP. Saat ada koneksi, akun otomatis masuk ke database online.'
-                : '✓ Akun baru Anda langsung tersimpan dengan enkripsi di database server cloud.',
-            style: const TextStyle(color: Colors.white70, fontSize: 10, height: 1.3),
-            textAlign: TextAlign.center,
+          child: Row(
+            children: [
+              const Icon(Icons.security, size: 14, color: Color(0xFF10B981)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _isOnline
+                      ? 'Pendaftaran tersimpan langsung di cloud database terenkripsi.'
+                      : 'Data akun disimpan di HP saat offline & otomatis tersinkron saat online.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  // Field Input Transparan Bersih
+  // ---------------------------------------------------------------------------
+  // HELPER WIDGET INPUT FIELD GLASSMORPHISM
+  // ---------------------------------------------------------------------------
   Widget _buildInputField({
     required TextEditingController controller,
     required String hint,
@@ -829,38 +865,46 @@ class _LoginPageState extends State<LoginPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: enabled ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.5),
+        color: Colors.black.withValues(alpha: 0.28),
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(
+          color: enabled
+              ? Colors.white.withValues(alpha: 0.25)
+              : Colors.white.withValues(alpha: 0.1),
+        ),
       ),
       child: TextField(
         controller: controller,
         enabled: enabled,
         obscureText: isPassword && !_isPasswordVisible,
         keyboardType: keyboardType,
-        style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: enabled ? Colors.white : Colors.white38,
+          fontSize: 13,
+        ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-          prefixIcon: Icon(icon, color: const Color(0xFF0F4C81), size: 20),
+          hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.55),
+            fontSize: 12.5,
+          ),
+          prefixIcon: Icon(
+            icon,
+            color: enabled ? Colors.white70 : Colors.white30,
+            size: 19,
+          ),
           suffixIcon: isPassword
               ? IconButton(
                   icon: Icon(
-                    _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.grey.shade600,
-                    size: 18,
+                    _isPasswordVisible
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: enabled ? Colors.white70 : Colors.white30,
+                    size: 19,
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _isPasswordVisible = !_isPasswordVisible;
-                    });
-                  },
+                  onPressed: enabled
+                      ? () => setState(() => _isPasswordVisible = !_isPasswordVisible)
+                      : null,
                 )
               : null,
           border: InputBorder.none,

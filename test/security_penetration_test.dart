@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:seavis/main.dart';
 import 'package:seavis/services/auth_service.dart';
+import 'package:seavis/services/network_service.dart';
 import 'package:seavis/services/offline_sync_service.dart';
 
 void main() {
@@ -141,6 +142,9 @@ void main() {
     // -------------------------------------------------------------------------
     testWidgets('PEN-TEST 06: Simulasi Brute-Force Rate Limiting Lockout di UI',
         (WidgetTester tester) async {
+      NetworkService.setMockStatus(false);
+      addTearDown(() => NetworkService.setMockStatus(null));
+
       tester.view.physicalSize = const Size(1080, 1920);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -157,11 +161,6 @@ void main() {
       // Masukkan kredensial salah
       await tester.enterText(emailFinder, 'victim@seavis.id');
       await tester.enterText(passwordFinder, 'WrongPassword123#');
-      await tester.pumpAndSettle();
-
-      // Beralih ke Mode Offline untuk isolasi unit test
-      final modeSwitcher = find.textContaining('Online (Database Aktif)');
-      await tester.tap(modeSwitcher);
       await tester.pumpAndSettle();
 
       // Lakukan 5 kali percobaan gagal berturut-turut

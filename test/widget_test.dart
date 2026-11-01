@@ -1,23 +1,35 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:seavis/main.dart';
+import 'package:seavis/services/network_service.dart';
 
 void main() {
-  testWidgets('SEAVIS Simple Transparent Login Page smoke test', (WidgetTester tester) async {
+  setUp(() {
+    NetworkService.setMockStatus(true);
+  });
+
+  tearDown(() {
+    NetworkService.setMockStatus(null);
+  });
+
+  testWidgets('SEAVIS Simple Transparent Login Page smoke test (Logo removed, Real Network)',
+      (WidgetTester tester) async {
     await tester.pumpWidget(const SeagrassGuardApp());
     await tester.pumpAndSettle();
 
-    // 1. Verifikasi Header Brand & UI Kaca Transparan
-    expect(find.text('SEAVIS'), findsOneWidget);
-    expect(find.text('Portal Nelayan & Observasi Laut'), findsOneWidget);
+    // 1. Verifikasi Logo SeaVis telah dihapus sesuai permintaan
+    expect(find.text('Portal Nelayan & Observasi Laut'), findsNothing);
 
-    // 2. Verifikasi Tab Masuk & Buat Akun
+    // 2. Verifikasi Indikator Koneksi Riil
+    expect(find.textContaining('Online'), findsWidgets);
+
+    // 3. Verifikasi Tab Masuk & Buat Akun
     expect(find.text('Masuk'), findsOneWidget);
     expect(find.text('Buat Akun'), findsOneWidget);
 
-    // 3. Verifikasi Tombol Masuk Awal
+    // 4. Verifikasi Tombol Masuk Awal
     expect(find.text('Masuk ke SeaVis'), findsOneWidget);
 
-    // 4. Uji perpindahan ke Tab Buat Akun
+    // 5. Uji perpindahan ke Tab Buat Akun
     await tester.tap(find.text('Buat Akun'));
     await tester.pumpAndSettle();
 
