@@ -1095,6 +1095,76 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
 
                     const SizedBox(height: 14),
 
+                    // Card Khusus Ambil Foto dengan Logo Foto
+                    GestureDetector(
+                      onTap: _openUploadModal,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 22,
+                          horizontal: 16,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: const Color(0xFF1E293B).withValues(alpha: 0.15),
+                            width: 1.5,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF93F8F2).withValues(alpha: 0.6),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: const Color(0xFF0F4C81),
+                                  width: 2,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.add_a_photo_rounded,
+                                size: 30,
+                                color: Color(0xFF0F4C81),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Ambil / Unggah Foto Padang Lamun',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            const Text(
+                              'Ketuk di sini untuk membuka kamera pantai atau galeri',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
                     // Indikator Kuota Foto Hari Ini (Putih Semi-Transparan)
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -1210,115 +1280,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                 ),
               ),
 
-              const SizedBox(height: 20),
-
-              // ---------------------------------------------------------------
-              // 4. DAFTAR FOTO TERVERIFIKASI HARI INI (RINGKAS & BERSIH)
-              // ---------------------------------------------------------------
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Foto Lamun Terverifikasi Hari Ini',
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  Text(
-                    '${_todayPhotos.length} Foto',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F4C81),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _todayPhotos.length,
-                itemBuilder: (context, index) {
-                  final photo = _todayPhotos[index];
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: photo.iconColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            photo.sampleIcon,
-                            size: 20,
-                            color: photo.iconColor,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                photo.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                photo.location,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFECFDF5),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            '+Rp 25.000',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF059669),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
             ],
           ),
         ),
