@@ -55,6 +55,11 @@ class _LoginPageState extends State<LoginPage> {
     super.initState();
     _checkPendingAccounts();
     _initRealNetworkMonitoring();
+    _regPasswordController.addListener(_onPasswordChanged);
+  }
+
+  void _onPasswordChanged() {
+    if (mounted) setState(() {});
   }
 
   void _initRealNetworkMonitoring() {
@@ -92,6 +97,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
+    _regPasswordController.removeListener(_onPasswordChanged);
     _networkSubscription?.cancel();
     NetworkService.stopMonitoring();
     _loginEmailController.dispose();
@@ -843,6 +849,10 @@ class _LoginPageState extends State<LoginPage> {
           icon: Icons.lock_outline,
           isPassword: true,
         ),
+        const SizedBox(height: 10),
+
+        // Panduan Password Interaktif (Checklist Realtime)
+        _buildPasswordGuidance(),
         const SizedBox(height: 20),
 
         // Tombol Submit Daftar
@@ -902,6 +912,66 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ],
+    );
+  }
+
+  // Panduan Password Interaktif (Checklist Realtime sesuai Standar Keamanan)
+  Widget _buildPasswordGuidance() {
+    final pwd = _regPasswordController.text;
+    final hasMinLength = pwd.length >= 8;
+    final hasUppercase = pwd.contains(RegExp(r'[A-Z]'));
+    final hasLowercase = pwd.contains(RegExp(r'[a-z]'));
+    final hasDigit = pwd.contains(RegExp(r'[0-9]'));
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Panduan Kata Sandi Aman:',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildCheckItem('Minimal 8 karakter', hasMinLength),
+          _buildCheckItem('Mengandung huruf besar (A-Z)', hasUppercase),
+          _buildCheckItem('Mengandung huruf kecil (a-z)', hasLowercase),
+          _buildCheckItem('Mengandung angka (0-9)', hasDigit),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCheckItem(String label, bool isSatisfied) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        children: [
+          Icon(
+            isSatisfied ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+            size: 14,
+            color: isSatisfied ? const Color(0xFF10B981) : Colors.white54,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: isSatisfied ? const Color(0xFF10B981) : Colors.white70,
+              fontWeight: isSatisfied ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
