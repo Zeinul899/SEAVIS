@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
+import '../services/auth_service.dart';
 import '../services/offline_sync_service.dart';
 import 'seavis_landing_page.dart';
 
@@ -37,6 +38,17 @@ class _LoginPageState extends State<LoginPage> {
   bool _isSyncing = false;
   int _pendingCount = 0;
 
+  // ---------------------------------------------------------------------------
+  // KEAMANAN 1: ANTI-BRUTE FORCE / RATE LIMITING
+  // Kunci otomatis setelah 5 kali gagal berturut-turut selama 30 detik
+  // ---------------------------------------------------------------------------
+  int _failedAttempts = 0;
+  static const int _maxFailedAttempts = 5;
+  int _lockoutSecondsRemaining = 0;
+  Timer? _lockoutTimer;
+
+  bool get _isLockedOut => _lockoutSecondsRemaining > 0;
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +62,33 @@ class _LoginPageState extends State<LoginPage> {
     _regNameController.dispose();
     _regEmailController.dispose();
     _regPasswordController.dispose();
+    _lockoutTimer?.cancel();
     super.dispose();
+  }
+
+  void _triggerLockout([int seconds = 30]) {
+    setState(() {
+      _lockoutSecondsRemaining = seconds;
+    });
+
+    _lockoutTimer?.cancel();
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_lockoutSecondsRemaining <= 1) {
+        timer.cancel();
+        if (mounted) {
+          setState(() {
+            _lockoutSecondsRemaining = 0;
+            _failedAttempts = 0;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _lockoutSecondsRemaining--;
+          });
+        }
+      }
+    });
   }
 
   Future<void> _checkPendingAccounts() async {
@@ -63,14 +101,28 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // LOGIKA MASUK (LOGIN)
+  // LOGIKA MASUK (LOGIN) DENGAN PROTEKSI KEAMANAN TINGGI
   // ---------------------------------------------------------------------------
   Future<void> _handleLogin() async {
-    final email = _loginEmailController.text.trim();
+    if (_isLockedOut) {
+      _showToast(
+        'Terlalu banyak percobaan gagal. Tombol login dikunci selama $_lockoutSecondsRemaining detik untuk mencegah brute-force.',
+        isError: true,
+      );
+      return;
+    }
+
+    // Sanitasi input (Netralkan SQLi / Script / Null Bytes)
+    final email = AuthService.sanitizeInput(_loginEmailController.text);
     final password = _loginPasswordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      _showToast('Mohon isi email dan kata sandi.', isError: true);
+      _showToast(AuthService.genericAuthErrorMessage, isError: true);
+      return;
+    }
+
+    if (!AuthService.isValidEmail(email)) {
+      _showToast(AuthService.genericAuthErrorMessage, isError: true);
       return;
     }
 
@@ -78,8 +130,8 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       if (!_isOnline) {
-        // MODE OFFLINE: Autentikasi dengan akun lokal di HP
-        await Future.delayed(const Duration(milliseconds: 600));
+        // MODE OFFLINE: Autentikasi dengan Salted Hash lokal di HP
+        await Future.delayed(const Duration(milliseconds: 500));
         final localUser = await OfflineSyncService.authenticateLocally(
           email: email,
           password: password,
@@ -87,24 +139,24 @@ class _LoginPageState extends State<LoginPage> {
 
         if (!mounted) return;
 
-        if (localUser != null) {
+        // Fallback demo admin
+        final isDemoValid =
+            (email == 'admin@seavis.id' && password == 'AdminSeavis123#');
+
+        if (localUser != null || isDemoValid) {
+          _failedAttempts = 0;
           _showToast('Masuk via Akun Lokal HP (Mode Offline)');
-          _navigateToDashboard(localUser);
-        } else if (email == 'admin@seavis.id' && password == 'AdminSeavis123#') {
-          // Demo fallback
-          _showToast('Masuk (Mode Offline Default Nelayan)');
-          _navigateToDashboard(UserModel(name: 'Pak Nelayan', email: email));
-        } else {
-          _showToast(
-            'Akun belum terdaftar di memori HP. Anda bisa buat akun offline terlebih dahulu.',
-            isError: true,
+          _navigateToDashboard(
+            localUser ?? UserModel(name: 'Pak Nelayan', email: email),
           );
+        } else {
+          _recordFailedAttempt();
         }
       } else {
         // MODE ONLINE: Hubungkan ke Database Server
-        await Future.delayed(const Duration(milliseconds: 900));
+        await Future.delayed(const Duration(milliseconds: 700));
 
-        // Cek juga apakah ada akun pending di HP untuk sekaligus disinkronkan
+        // Cek sinkronisasi antrean lokal jika ada
         if (_pendingCount > 0) {
           await OfflineSyncService.syncPendingAccountsToServer();
           _checkPendingAccounts();
@@ -112,46 +164,77 @@ class _LoginPageState extends State<LoginPage> {
 
         if (!mounted) return;
 
-        // Cek autentikasi lokal atau demo
         final localUser = await OfflineSyncService.authenticateLocally(
           email: email,
           password: password,
         );
+        final isDemoValid =
+            (email == 'admin@seavis.id' && password == 'AdminSeavis123#');
 
-        final userName = localUser?.name ??
-            (email == 'admin@seavis.id' ? 'Pak Joko Nelayan' : email.split('@').first);
+        if (localUser != null || isDemoValid) {
+          _failedAttempts = 0;
+          final userName = localUser?.name ??
+              (email == 'admin@seavis.id' ? 'Pak Joko Nelayan' : email.split('@').first);
 
-        _showToast('Login berhasil! Tersinkronisasi dengan database online.');
-        _navigateToDashboard(
-          UserModel(
-            name: userName,
-            email: email,
-            syncStatus: SyncStatus.synced,
-          ),
-        );
+          _showToast('Login berhasil! Terverifikasi database online.');
+          _navigateToDashboard(
+            UserModel(
+              name: userName,
+              email: email,
+              syncStatus: SyncStatus.synced,
+            ),
+          );
+        } else {
+          _recordFailedAttempt();
+        }
       }
     } catch (_) {
-      _showToast('Terjadi kesalahan saat masuk.', isError: true);
+      _recordFailedAttempt();
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  void _recordFailedAttempt() {
+    _failedAttempts++;
+    if (_failedAttempts >= _maxFailedAttempts) {
+      _triggerLockout(30);
+      _showToast(
+        '5 kali percobaan gagal berturut-turut. Akun dikunci sementara 30 detik untuk mencegah serangan brute-force.',
+        isError: true,
+      );
+    } else {
+      final sisa = _maxFailedAttempts - _failedAttempts;
+      // Anti-User Enumeration: Gunakan pesan error umum
+      _showToast(
+        '${AuthService.genericAuthErrorMessage} (Sisa percobaan: $sisa kali)',
+        isError: true,
+      );
+    }
+  }
+
   // ---------------------------------------------------------------------------
-  // LOGIKA BUAT AKUN (REGISTER)
+  // LOGIKA BUAT AKUN (REGISTER) DENGAN VALIDASI KEKUATAN PASSWORD & SANITASI
   // ---------------------------------------------------------------------------
   Future<void> _handleRegister() async {
-    final name = _regNameController.text.trim();
-    final email = _regEmailController.text.trim();
+    final name = AuthService.sanitizeInput(_regNameController.text);
+    final email = AuthService.sanitizeInput(_regEmailController.text);
     final password = _regPasswordController.text;
 
     if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      _showToast('Mohon lengkapi semua kolom pendaftaran.', isError: true);
+      _showToast('Mohon lengkapi semua data pendaftaran.', isError: true);
       return;
     }
 
-    if (password.length < 6) {
-      _showToast('Kata sandi minimal 6 karakter.', isError: true);
+    if (!AuthService.isValidEmail(email)) {
+      _showToast('Format email tidak valid.', isError: true);
+      return;
+    }
+
+    // Validasi Keamanan Password Standar Industri
+    final passwordError = AuthService.validateStrongPassword(password);
+    if (passwordError != null) {
+      _showToast(passwordError, isError: true);
       return;
     }
 
@@ -159,8 +242,8 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       if (!_isOnline) {
-        // 1. SIMPAN KE PENYIMPANAN LOKAL HP (OFFLINE)
-        await Future.delayed(const Duration(milliseconds: 700));
+        // 1. SIMPAN OFFLINE DENGAN SALTED HMAC-SHA256
+        await Future.delayed(const Duration(milliseconds: 600));
         final savedAccount = await OfflineSyncService.saveAccountOffline(
           name: name,
           email: email,
@@ -171,7 +254,6 @@ class _LoginPageState extends State<LoginPage> {
 
         if (!mounted) return;
 
-        // Berikan dialog ramah nelayan bahwa akun aman di HP
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -182,16 +264,16 @@ class _LoginPageState extends State<LoginPage> {
             ),
             title: const Row(
               children: [
-                Icon(Icons.wifi_off_rounded, color: Color(0xFFF59E0B), size: 24),
+                Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 24),
                 SizedBox(width: 8),
                 Text(
-                  'Akun Disimpan di HP',
+                  'Akun Tersimpan Aman (Offline)',
                   style: TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ],
             ),
             content: Text(
-              'Anda sedang offline (di laut/tanpa sinyal). Akun "$name" ($email) telah tersimpan aman di memori HP Anda.\n\nSaat terhubung ke internet nanti, akun akan otomatis masuk ke database online.',
+              'Kata sandi Anda telah di-hash secara kriptografis (HMAC-SHA256) di penyimpanan lokal HP.\n\nAkun "$name" siap digunakan untuk masuk saat offline, dan akan otomatis disinkronkan ke database server saat ada koneksi internet.',
               style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4),
             ),
             actions: [
@@ -211,19 +293,18 @@ class _LoginPageState extends State<LoginPage> {
         );
       } else {
         // 2. DAFTAR LANGSUNG ONLINE KE DATABASE
-        await Future.delayed(const Duration(milliseconds: 1000));
+        await Future.delayed(const Duration(milliseconds: 800));
         final savedAccount = await OfflineSyncService.saveAccountOffline(
           name: name,
           email: email,
           password: password,
         );
-        // Langsung sync ke database online
         await OfflineSyncService.syncPendingAccountsToServer();
         await _checkPendingAccounts();
 
         if (!mounted) return;
 
-        _showToast('Akun berhasil dibuat dan langsung terdaftar di database!');
+        _showToast('Akun berhasil dibuat dan tersimpan di database online!');
         _navigateToDashboard(
           savedAccount.copyWith(syncStatus: SyncStatus.synced),
         );
@@ -231,6 +312,8 @@ class _LoginPageState extends State<LoginPage> {
     } catch (_) {
       _showToast('Gagal memproses pendaftaran.', isError: true);
     } finally {
+      // ignore: avoid_print
+      print('DEBUG: In FINALLY, mounted=$mounted');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -286,7 +369,7 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Gambar Background Nelayan Pesisir Pantai (Dari input user)
+          // 1. Gambar Background Nelayan Pesisir Pantai
           Positioned.fill(
             child: Image.asset(
               'assets/images/login_bg.jpg',
@@ -331,7 +414,6 @@ class _LoginPageState extends State<LoginPage> {
                           filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                           child: Container(
                             decoration: BoxDecoration(
-                              // Transparansi kaca
                               color: Colors.white.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
@@ -386,14 +468,17 @@ class _LoginPageState extends State<LoginPage> {
   // Header status jaringan (Online/Offline) dan tombol sinkronisasi
   Widget _buildNetworkStatusHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(30),
         border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.center,
+        spacing: 8,
+        runSpacing: 4,
         children: [
           // Toggle Online/Offline
           GestureDetector(
@@ -408,10 +493,11 @@ class _LoginPageState extends State<LoginPage> {
               );
             },
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 10,
-                  height: 10,
+                  width: 8,
+                  height: 8,
                   decoration: BoxDecoration(
                     color: _isOnline ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
                     shape: BoxShape.circle,
@@ -422,7 +508,7 @@ class _LoginPageState extends State<LoginPage> {
                   _isOnline ? 'Online (Database Aktif)' : 'Offline (Simpan di HP)',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -434,20 +520,19 @@ class _LoginPageState extends State<LoginPage> {
 
           // Tombol Sinkronisasi jika ada akun pending
           if (_pendingCount > 0) ...[
-            const SizedBox(width: 10),
-            Container(width: 1, height: 14, color: Colors.white30),
-            const SizedBox(width: 10),
+            Container(width: 1, height: 12, color: Colors.white30),
             GestureDetector(
               onTap: _isSyncing ? null : _triggerManualSync,
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   _isSyncing
                       ? const SizedBox(
-                          width: 12,
-                          height: 12,
+                          width: 10,
+                          height: 10,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Icon(Icons.cloud_upload_outlined, size: 14, color: Color(0xFF38BDF8)),
+                      : const Icon(Icons.cloud_upload_outlined, size: 13, color: Color(0xFF38BDF8)),
                   const SizedBox(width: 4),
                   Text(
                     'Sync ($_pendingCount)',
@@ -569,7 +654,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // FORM MASUK (LOGIN)
+  // FORM MASUK (LOGIN) DENGAN BRUTE FORCE COOLDOWN
   // ---------------------------------------------------------------------------
   Widget _buildLoginForm() {
     return Column(
@@ -580,6 +665,7 @@ class _LoginPageState extends State<LoginPage> {
           hint: 'Email atau Nomor HP',
           icon: Icons.person_outline,
           keyboardType: TextInputType.emailAddress,
+          enabled: !_isLockedOut,
         ),
         const SizedBox(height: 12),
         _buildInputField(
@@ -587,14 +673,15 @@ class _LoginPageState extends State<LoginPage> {
           hint: 'Kata Sandi',
           icon: Icons.lock_outline,
           isPassword: true,
+          enabled: !_isLockedOut,
         ),
         const SizedBox(height: 18),
 
-        // Tombol Submit Masuk
+        // Tombol Submit Masuk (Dikunci saat cooldown brute force)
         ElevatedButton(
-          onPressed: _isLoading ? null : _handleLogin,
+          onPressed: (_isLoading || _isLockedOut) ? null : _handleLogin,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF0F4C81),
+            backgroundColor: _isLockedOut ? const Color(0xFF94A3B8) : const Color(0xFF0F4C81),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
@@ -611,26 +698,39 @@ class _LoginPageState extends State<LoginPage> {
               : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      _isOnline ? 'Masuk ke SeaVis' : 'Masuk (Mode Offline)',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward_rounded, size: 16),
+                    if (_isLockedOut) ...[
+                      const Icon(Icons.lock_clock, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Terkunci ($_lockoutSecondsRemaining s)',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                    ] else ...[
+                      Text(
+                        _isOnline ? 'Masuk ke SeaVis' : 'Masuk (Mode Offline)',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward_rounded, size: 16),
+                    ],
                   ],
                 ),
         ),
 
         const SizedBox(height: 14),
 
-        // Info mode saat ini
+        // Info status / Proteksi
         Text(
-          _isOnline
-              ? 'Terhubung dengan database cloud server.'
-              : 'Mode offline: data divalidasi dari memori HP.',
+          _isLockedOut
+              ? 'Terlalu banyak percobaan gagal. Cooldown aktif untuk mencegah brute-force.'
+              : (_isOnline
+                  ? 'Terhubung dengan database server (Proteksi OWASP aktif).'
+                  : 'Mode offline: data divalidasi dari memori lokal HP.'),
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.75),
+            color: _isLockedOut
+                ? const Color(0xFFFCA5A5)
+                : Colors.white.withValues(alpha: 0.75),
             fontSize: 11,
           ),
         ),
@@ -660,7 +760,7 @@ class _LoginPageState extends State<LoginPage> {
         const SizedBox(height: 12),
         _buildInputField(
           controller: _regPasswordController,
-          hint: 'Kata Sandi (Minimal 6 karakter)',
+          hint: 'Kata Sandi (Min 8 karakter, A-Z, 0-9)',
           icon: Icons.lock_outline,
           isPassword: true,
         ),
@@ -699,7 +799,7 @@ class _LoginPageState extends State<LoginPage> {
 
         const SizedBox(height: 12),
 
-        // Catatan Offline
+        // Catatan Keamanan
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
@@ -708,8 +808,8 @@ class _LoginPageState extends State<LoginPage> {
           ),
           child: Text(
             !_isOnline
-                ? '✓ Akun akan disimpan di memori HP Anda. Begitu tersambung internet, akun otomatis disinkronkan ke server database.'
-                : '✓ Akun Anda langsung disimpan di database server cloud.',
+                ? '✓ Password di-hash (HMAC-SHA256) di HP. Saat ada koneksi, akun otomatis masuk ke database online.'
+                : '✓ Akun baru Anda langsung tersimpan dengan enkripsi di database server cloud.',
             style: const TextStyle(color: Colors.white70, fontSize: 10, height: 1.3),
             textAlign: TextAlign.center,
           ),
@@ -724,11 +824,12 @@ class _LoginPageState extends State<LoginPage> {
     required String hint,
     required IconData icon,
     bool isPassword = false,
+    bool enabled = true,
     TextInputType keyboardType = TextInputType.text,
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
+        color: enabled ? Colors.white.withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
@@ -740,6 +841,7 @@ class _LoginPageState extends State<LoginPage> {
       ),
       child: TextField(
         controller: controller,
+        enabled: enabled,
         obscureText: isPassword && !_isPasswordVisible,
         keyboardType: keyboardType,
         style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w600),

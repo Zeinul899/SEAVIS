@@ -25,38 +25,7 @@ class SyncResult {
 /// dan sinkronisasi otomatis ke server (MySQL / Firebase / Cloud) saat online
 class OfflineSyncService {
   static const String _fileName = 'seavis_offline_accounts.json';
-
-  // Kunci enkripsi lokal sederhana untuk mengaburkan (obfuscate) kata sandi sementara
-  // agar TIDAK tersimpan sebagai plain-text di memori perangkat
-  static const String _localCipherKey = 'SEAVIS_SECURE_OFFLINE_SALT_2026';
-
-  /// Obfuscate data menggunakan XOR + Base64
-  static String _encryptLocalData(String input) {
-    final keyBytes = utf8.encode(_localCipherKey);
-    final inputBytes = utf8.encode(input);
-    final outputBytes = <int>[];
-
-    for (int i = 0; i < inputBytes.length; i++) {
-      outputBytes.add(inputBytes[i] ^ keyBytes[i % keyBytes.length]);
-    }
-    return base64Encode(outputBytes);
-  }
-
-  /// Dekripsi data terenkripsi lokal
-  static String _decryptLocalData(String base64Input) {
-    try {
-      final keyBytes = utf8.encode(_localCipherKey);
-      final inputBytes = base64Decode(base64Input);
-      final outputBytes = <int>[];
-
-      for (int i = 0; i < inputBytes.length; i++) {
-        outputBytes.add(inputBytes[i] ^ keyBytes[i % keyBytes.length]);
-      }
-      return utf8.decode(outputBytes);
-    } catch (_) {
-      return '';
-    }
-  }
+  static const String _hashPrefix = '\$seavis-hmac\$';
 
   /// Mendapatkan file penyimpanan lokal
   static Future<File> _getLocalFile() async {
@@ -92,23 +61,23 @@ class OfflineSyncService {
   }
 
   /// --------------------------------------------------------------------------
-  /// 1. SIMPAN AKUN SECARA OFFLINE DI HP
+  /// 1. SIMPAN AKUN SECARA OFFLINE DI HP (Dengan Salted HMAC-SHA256 Hash)
   /// --------------------------------------------------------------------------
-  /// Disimpan saat HP tidak memiliki koneksi internet.
-  /// Kata sandi dienkripsi lokal terlebih dahulu.
   static Future<UserModel> saveAccountOffline({
     required String name,
     required String email,
     required String password,
   }) async {
     final cleanEmail = AuthService.sanitizeInput(email);
-    final encryptedPassword = _encryptLocalData(password);
+    final salt = AuthService.generateCryptographicSalt();
+    final hashedPassword = AuthService.hashPassword(password, salt);
+    final secureStoredCredential = '$_hashPrefix$salt\$$hashedPassword';
 
     final newAccount = UserModel(
       id: 'local_${DateTime.now().millisecondsSinceEpoch}',
       name: name.trim(),
       email: cleanEmail,
-      localEncryptedPassword: encryptedPassword,
+      localEncryptedPassword: secureStoredCredential,
       syncStatus: SyncStatus.pending,
       createdAt: DateTime.now(),
     );
@@ -129,7 +98,7 @@ class OfflineSyncService {
   }
 
   /// --------------------------------------------------------------------------
-  /// Autentikasi akun lokal saat HP offline
+  /// 2. AUTENTIKASI AKUN LOKAL SAAT HP OFFLINE (Constant-Time Verification)
   /// --------------------------------------------------------------------------
   static Future<UserModel?> authenticateLocally({
     required String email,
@@ -137,11 +106,23 @@ class OfflineSyncService {
   }) async {
     final cleanEmail = AuthService.sanitizeInput(email);
     final accounts = await getAllLocalAccounts();
+
     for (final acc in accounts) {
       if (acc.email.toLowerCase() == cleanEmail.toLowerCase()) {
-        final decrypted = _decryptLocalData(acc.localEncryptedPassword ?? '');
-        if (decrypted == password) {
-          return acc;
+        final stored = acc.localEncryptedPassword ?? '';
+
+        if (stored.startsWith(_hashPrefix)) {
+          final parts = stored.substring(_hashPrefix.length).split('\$');
+          if (parts.length == 2) {
+            final salt = parts[0];
+            final expectedHash = parts[1];
+            final candidateHash = AuthService.hashPassword(password, salt);
+
+            // Verifikasi Constant-Time untuk mencegah Timing Attack
+            if (AuthService.constantTimeEquals(candidateHash, expectedHash)) {
+              return acc;
+            }
+          }
         }
       }
     }
@@ -149,10 +130,8 @@ class OfflineSyncService {
   }
 
   /// --------------------------------------------------------------------------
-  /// 2. SINKRONISASI AKUN KE SERVER (MySQL / Firebase / Database) SAAT ONLINE
+  /// 3. SINKRONISASI AKUN KE SERVER SAAT ONLINE
   /// --------------------------------------------------------------------------
-  /// Mengambil semua akun pending, mengirimkan ke server, dan menghapus
-  /// kata sandi lokal begitu berhasil disimpan di database server.
   static Future<SyncResult> syncPendingAccountsToServer({
     String? backendRegisterUrl,
   }) async {
@@ -172,28 +151,20 @@ class OfflineSyncService {
     final allAccounts = await getAllLocalAccounts();
 
     for (final account in pendingAccounts) {
-      final decryptedPassword = _decryptLocalData(account.localEncryptedPassword ?? '');
-
-      if (decryptedPassword.isEmpty) {
-        failureCount++;
-        logMessages.add('Akun ${account.email}: Data kata sandi lokal tidak valid.');
-        continue;
-      }
-
       try {
-        // Simulasi pengiriman data akun ke database server
-        await Future.delayed(const Duration(milliseconds: 900));
+        // Simulasi pengiriman data akun ke database server (MySQL / Firebase)
+        await Future.delayed(const Duration(milliseconds: 600));
 
-        // Sukses tersimpan di server!
         successCount++;
         logMessages.add('Berhasil menyinkronkan ${account.email} ke database.');
 
         // Update status akun di HP:
+        // Hapus password hash dari memori perangkat setelah akun sukses di server
         final index = allAccounts.indexWhere((a) => a.id == account.id);
         if (index != -1) {
           allAccounts[index] = allAccounts[index].copyWith(
             syncStatus: SyncStatus.synced,
-            localEncryptedPassword: null, // Hapus password dari HP demi keamanan
+            localEncryptedPassword: null,
             lastSyncAttempt: DateTime.now(),
           );
         }
