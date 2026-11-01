@@ -459,6 +459,10 @@ class _LoginPageState extends State<LoginPage> {
                       _buildNetworkStatusHeader(),
                       const SizedBox(height: 16),
 
+                      // Teks Judul & Tagline di LUAR Card
+                      _buildOutsideHeader(),
+                      const SizedBox(height: 18),
+
                       // KARTU FORM TRANSPARAN (FROSTED GLASS EFFECT)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(24),
@@ -487,31 +491,7 @@ class _LoginPageState extends State<LoginPage> {
                                 mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  // 1. Judul & Tagline di Atas Tab "Masuk / Buat Akun" (Pilihan 1: Fokus Konservasi & Karbon)
-                                  const Text(
-                                    'SeaVis',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Monitoring Ekosistem Lamun & Karbon Biru Pesisir',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.9),
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 18),
-
-                                  // Tab Switcher: "Masuk" vs "Buat Akun"
+                                  // Tab Switcher: "Masuk" vs "Buat Akun" (Langsung di atas form dalam card)
                                   _buildTabSwitcher(),
                                   const SizedBox(height: 20),
 
@@ -534,6 +514,49 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ],
       ),
+    );
+  }
+
+  // Header teks di luar card (Judul & Tagline Konservasi)
+  Widget _buildOutsideHeader() {
+    return const Column(
+      children: [
+        Text(
+          'Mulailah Bersama SeaVis',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.8,
+            shadows: [
+              Shadow(
+                color: Colors.black54,
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 6),
+        Text(
+          'Sistem Monitoring Ekosistem Lamun & Karbon Biru Pesisir',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            height: 1.35,
+            shadows: [
+              Shadow(
+                color: Colors.black54,
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

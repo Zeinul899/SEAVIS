@@ -16,9 +16,9 @@ void main() {
     await tester.pumpWidget(const SeagrassGuardApp());
     await tester.pumpAndSettle();
 
-    // 1. Verifikasi Judul & Tagline di Atas Tab
-    expect(find.text('SeaVis'), findsOneWidget);
-    expect(find.text('Monitoring Ekosistem Lamun & Karbon Biru Pesisir'), findsOneWidget);
+    // 1. Verifikasi Judul & Tagline di Luar Card
+    expect(find.text('Mulailah Bersama SeaVis'), findsOneWidget);
+    expect(find.text('Sistem Monitoring Ekosistem Lamun & Karbon Biru Pesisir'), findsOneWidget);
 
     // 2. Verifikasi Indikator Koneksi Riil
     expect(find.textContaining('Online'), findsWidgets);
