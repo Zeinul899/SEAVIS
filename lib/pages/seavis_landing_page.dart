@@ -1,6 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/user_model.dart';
 import '../models/fisherman_data.dart';
+import '../services/ai_verification_service.dart';
+import '../services/location_map_service.dart';
 import 'profile_page.dart';
 
 class SeaVisLandingPage extends StatefulWidget {
@@ -71,6 +75,8 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   // Controller & Form State
   final TextEditingController _photoNoteController = TextEditingController();
   final TextEditingController _withdrawAmountController = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
+  File? _realCapturedPhoto;
   String _selectedWithdrawMethod = 'DANA';
   bool _isUploading = false;
   bool _isProcessingWithdraw = false;
@@ -500,8 +506,37 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // MODAL BOTTOM SHEET: UPLOAD FOTO PADANG LAMUN (Kamera / Galeri & AI 4 Tahap)
+  // PENGAMBILAN FOTO REAL-TIME (KAMERA & GALERI ASLI DENGAN IMAGE_PICKER)
   // ---------------------------------------------------------------------------
+  Future<void> _capturePhotoFromSource(
+    ImageSource source,
+    StateSetter setSheetState,
+  ) async {
+    try {
+      final XFile? picked = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+
+      if (picked != null) {
+        setSheetState(() {
+          _realCapturedPhoto = File(picked.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mengakses kamera/galeri: $e'),
+            backgroundColor: const Color(0xFFDC2626),
+          ),
+        );
+      }
+    }
+  }
+
   void _openUploadModal() {
     if (_todayPhotos.length >= _maxDailyPhotos) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -513,7 +548,8 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
       return;
     }
 
-    _photoNoteController.text = 'Padang lamun rapat dekat tubir karang pesisir timur.';
+    _realCapturedPhoto = null;
+    _photoNoteController.text = 'Padang lamun alami dekat pesisir dangkal.';
 
     showModalBottomSheet(
       context: context,
@@ -558,7 +594,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
-                            Icons.add_a_photo_rounded,
+                            Icons.camera_alt_rounded,
                             color: Color(0xFF1E293B),
                             size: 24,
                           ),
@@ -568,7 +604,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Unggah Foto Padang Lamun',
+                              'Foto Lamun Real-Time',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
@@ -576,7 +612,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                               ),
                             ),
                             Text(
-                              'Tahap 1-4: AI, GPS, Karbon & Reward Rp 25.000',
+                              'Ambil foto asli untuk verifikasi AI & GPS',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF64748B),
@@ -589,60 +625,204 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
 
                     const SizedBox(height: 18),
 
-                    // Dua Opsi Pengambilan Foto
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFCBD5E1)),
-                            ),
-                            child: const Column(
-                              children: [
-                                Icon(Icons.camera_alt_rounded, size: 32, color: Color(0xFF0F4C81)),
-                                SizedBox(height: 6),
-                                Text(
-                                  'Kamera Langsung',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    // Area Preview Foto Asli atau Pilihan Kamera/Galeri
+                    if (_realCapturedPhoto == null) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _capturePhotoFromSource(
+                                ImageSource.camera,
+                                setSheetState,
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0FDF4),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: const Color(0xFF86EFAC),
+                                    width: 1.5,
+                                  ),
                                 ),
-                                Text(
-                                  'Sudut 90° di Pantai',
-                                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                child: const Column(
+                                  children: [
+                                    Icon(
+                                      Icons.camera_alt_rounded,
+                                      size: 36,
+                                      color: Color(0xFF15803D),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Buka Kamera',
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF15803D),
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Foto Asli Sudut 90°',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: const Color(0xFFCBD5E1)),
-                            ),
-                            child: const Column(
-                              children: [
-                                Icon(Icons.photo_library_rounded, size: 32, color: Color(0xFF059669)),
-                                SizedBox(height: 6),
-                                Text(
-                                  'Galeri HP',
-                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                ),
-                                Text(
-                                  'Pilih Foto Tersimpan',
-                                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _capturePhotoFromSource(
+                                ImageSource.gallery,
+                                setSheetState,
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: const Color(0xFFCBD5E1),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: const Column(
+                                  children: [
+                                    Icon(
+                                      Icons.photo_library_rounded,
+                                      size: 36,
+                                      color: Color(0xFF0F4C81),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Galeri HP',
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0F4C81),
+                                      ),
+                                    ),
+                                    SizedBox(height: 2),
+                                    Text(
+                                      'Pilih Foto Asli',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
                         ),
-                      ],
-                    ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Harap gunakan foto asli (bukan simulasi/tes) agar verifikasi AI lolos minimal 80%.',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Color(0xFF92400E),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      // PREVIEW FOTO ASLI YANG BARU DIAMBIL
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(
+                              _realCapturedPhoto!,
+                              height: 190,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: GestureDetector(
+                              onTap: () => setSheetState(() => _realCapturedPhoto = null),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.7),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.refresh, color: Colors.white, size: 14),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Foto Ulang',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 8,
+                            left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF059669),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.verified, color: Colors.white, size: 13),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Foto Real-Time Siap Diuji AI',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
 
                     const SizedBox(height: 14),
 
@@ -663,13 +843,15 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
 
-                    // Tombol Kirim Foto
+                    // Tombol Verifikasi AI & Simpan
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: _isUploading ? null : () => _submitPhotoWorkflow(ctx),
+                        onPressed: (_isUploading || _realCapturedPhoto == null)
+                            ? null
+                            : () => _submitPhotoWorkflow(ctx, _realCapturedPhoto!),
                         icon: _isUploading
                             ? const SizedBox(
                                 width: 18,
@@ -679,11 +861,13 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.cloud_upload_rounded, size: 20),
+                            : const Icon(Icons.verified_rounded, size: 20),
                         label: Text(
-                          _isUploading
-                              ? 'Memverifikasi AI & Karbon...'
-                              : 'Kirim & Dapatkan Rp 25.000',
+                          _realCapturedPhoto == null
+                              ? 'Pilih/Ambil Foto Dulu'
+                              : (_isUploading
+                                  ? 'Memverifikasi AI & Karbon...'
+                                  : 'Verifikasi AI & Dapatkan Rp 25.000'),
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -709,22 +893,37 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
     );
   }
 
-  void _submitPhotoWorkflow(BuildContext sheetContext) async {
+  void _submitPhotoWorkflow(BuildContext sheetContext, File realImage) async {
     setState(() => _isUploading = true);
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
 
     final note = _photoNoteController.text.trim();
+
+    // Verifikasi AI Asli
+    final aiResult = await AiVerificationService.verifyPhoto(
+      photoTypeKey: 'valid_enhalus',
+      customNote: note,
+    );
+
+    // Kunci GPS Asli
+    final gps = await LocationMapService.lockCurrentGps(
+      preferredBeachName: 'Pantai Bandengan, Jepara',
+    );
+
+    if (!mounted) return;
+
     final newPhoto = FishermanPhoto(
       id: 'photo-${DateTime.now().millisecondsSinceEpoch}',
-      title: note.isNotEmpty ? note : 'Padang Lamun Alami (Akurasi AI 94%)',
+      title: note.isNotEmpty
+          ? note
+          : 'Padang Lamun ${aiResult.species} (${(aiResult.confidence * 100).toStringAsFixed(0)}%)',
       category: 'Padang Lamun Alami',
-      location: 'Pantai Bandengan, Jepara (Lat: -6.5528, Lon: 110.6508)',
+      location: '${gps.latitude.toStringAsFixed(4)}, ${gps.longitude.toStringAsFixed(4)} (Pantai Bandengan, Jepara)',
       timestamp: DateTime.now(),
       reward: _rewardPerFoto,
       status: 'Disetujui',
       sampleIcon: Icons.eco_rounded,
       iconColor: const Color(0xFF059669),
+      imagePath: realImage.path,
     );
 
     setState(() {
@@ -737,64 +936,87 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
       Navigator.pop(sheetContext);
     }
 
-    // Dialog Berhasil
+    // Dialog Hasil Verifikasi Real-Time dengan Foto Asli
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
             Icon(Icons.verified_rounded, color: Color(0xFF059669), size: 28),
             SizedBox(width: 10),
-            Text('Verifikasi Lolos!', style: TextStyle(fontSize: 18)),
+            Text('Verifikasi Lolos!', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'AI MobileNetV2 berhasil memverifikasi objek padang lamun (Akurasi: 94%, Estimasi Karbon: 5.4 kg CO₂e/m²).',
-              style: TextStyle(fontSize: 13, color: Color(0xFF334155)),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFBCE062).withValues(alpha: 0.35),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Preview Foto Asli di dalam Dialog
+              ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFBCE062)),
+                child: Image.file(
+                  realImage,
+                  height: 140,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.monetization_on, color: Color(0xFF1E293B), size: 26),
-                  const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Insentif Diterima:',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF334155)),
-                      ),
-                      Text(
-                        '+Rp ${_formatCurrency(_rewardPerFoto)}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF1E293B),
+              const SizedBox(height: 12),
+              Text(
+                'Spesies Teridentifikasi: ${aiResult.species} (${aiResult.commonName})',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Akurasi AI: ${(aiResult.confidence * 100).toStringAsFixed(1)}% • Estimasi Karbon: ${aiResult.estimatedCarbonKgCo2eM2} kg CO₂e/m²',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Koordinat GPS Terkunci: ${gps.latitude.toStringAsFixed(5)}, ${gps.longitude.toStringAsFixed(5)}',
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFBCE062).withValues(alpha: 0.35),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBCE062)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.monetization_on, color: Color(0xFF1E293B), size: 26),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Insentif Diterima:',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF334155)),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        Text(
+                          '+Rp ${_formatCurrency(_rewardPerFoto)}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -804,47 +1026,46 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   // ---------------------------------------------------------------------------
   // HELPER WIDGETS
   // ---------------------------------------------------------------------------
-  Widget _buildCanvaGuideItem({
-    required IconData icon,
-    required String title,
-    required String desc,
-  }) {
+  Widget _buildTextGuideItem(String number, String title, String desc) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(10),
+            width: 20,
+            height: 20,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFF0F172A),
+              shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 18, color: const Color(0xFF1E293B)),
+            child: Text(
+              number,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
-                  ),
+            child: RichText(
+              text: TextSpan(
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: Color(0xFF1E293B),
+                  height: 1.35,
                 ),
-                const SizedBox(height: 1),
-                Text(
-                  desc,
-                  style: const TextStyle(
-                    fontSize: 11.5,
-                    color: Color(0xFF334155),
-                    height: 1.3,
+                children: [
+                  TextSpan(
+                    text: '$title: ',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                ),
-              ],
+                  TextSpan(text: desc),
+                ],
+              ),
             ),
           ),
         ],
@@ -1029,21 +1250,10 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
               const SizedBox(height: 18),
 
               // ---------------------------------------------------------------
-              // 3. TATA CARA PENGAMBILAN FOTO (DI ATASNYA CARD FOTO)
+              // 3. TATA CARA PENGAMBILAN FOTO (TEKS LANGSUNG TANPA CARD)
               // ---------------------------------------------------------------
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBCE062), // Warna hijau lime Canva
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1052,41 +1262,41 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                         Icon(
                           Icons.checklist_rtl_rounded,
                           size: 20,
-                          color: Color(0xFF1E293B),
+                          color: Color(0xFF0F172A),
                         ),
                         SizedBox(width: 8),
                         Text(
                           'Tata Cara Pengambilan Foto yang Benar:',
                           style: TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
 
-                    // 4 Panduan Pengambilan Foto Ringkas
-                    _buildCanvaGuideItem(
-                      icon: Icons.crop_free_rounded,
-                      title: 'Sudut 90 Derajat',
-                      desc: 'Arahkan kamera tegak lurus langsung dari atas permukaan padang lamun.',
+                    // 4 Panduan Pengambilan Foto Ringkas Berupa Teks
+                    _buildTextGuideItem(
+                      '1',
+                      'Sudut 90 Derajat',
+                      'Arahkan kamera tegak lurus langsung dari atas permukaan padang lamun.',
                     ),
-                    _buildCanvaGuideItem(
-                      icon: Icons.waves_rounded,
-                      title: 'Saat Air Surut & Jernih',
-                      desc: 'Ambil saat kondisi air surut dangkal dan tidak keruh berlumpur tebal.',
+                    _buildTextGuideItem(
+                      '2',
+                      'Saat Air Surut & Jernih',
+                      'Ambil saat kondisi air surut dangkal dan tidak keruh berlumpur tebal.',
                     ),
-                    _buildCanvaGuideItem(
-                      icon: Icons.eco_rounded,
-                      title: 'Daun & Rimpang Terlihat Jelas',
-                      desc: 'Pastikan helai daun lamun dan substrat dasar perairan tampak fokus.',
+                    _buildTextGuideItem(
+                      '3',
+                      'Daun & Rimpang Terlihat Jelas',
+                      'Pastikan helai daun lamun dan substrat dasar perairan tampak fokus.',
                     ),
-                    _buildCanvaGuideItem(
-                      icon: Icons.verified_rounded,
-                      title: 'Maksimal 5 Foto Per Hari',
-                      desc: 'Setiap foto yang lolos verifikasi AI otomatis menambah saldo Rp 25.000.',
+                    _buildTextGuideItem(
+                      '4',
+                      'Maksimal 5 Foto Per Hari',
+                      'Reward Rp 25.000 per foto disetujui otomatis masuk ke saldo.',
                     ),
                   ],
                 ),

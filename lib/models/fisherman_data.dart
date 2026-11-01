@@ -11,6 +11,7 @@ class FishermanPhoto {
   final String status;
   final IconData sampleIcon;
   final Color iconColor;
+  final String? imagePath;
 
   const FishermanPhoto({
     required this.id,
@@ -22,6 +23,7 @@ class FishermanPhoto {
     this.status = 'Disetujui',
     this.sampleIcon = Icons.set_meal_rounded,
     this.iconColor = const Color(0xFF0284C7),
+    this.imagePath,
   });
 }
 
