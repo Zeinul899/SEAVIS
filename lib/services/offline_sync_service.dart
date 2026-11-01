@@ -22,7 +22,7 @@ class SyncResult {
 }
 
 /// Service untuk menangani penyimpanan akun offline di HP
-/// dan sinkronisasi otomatis ke server (MySQL / Firebase) saat online
+/// dan sinkronisasi otomatis ke server (MySQL / Firebase / Cloud) saat online
 class OfflineSyncService {
   static const String _fileName = 'seavis_offline_accounts.json';
 
@@ -60,7 +60,6 @@ class OfflineSyncService {
 
   /// Mendapatkan file penyimpanan lokal
   static Future<File> _getLocalFile() async {
-    // Menggunakan path lokal perangkat
     final directory = Directory.systemTemp;
     final file = File('${directory.path}/$_fileName');
     if (!await file.exists()) {
@@ -130,10 +129,30 @@ class OfflineSyncService {
   }
 
   /// --------------------------------------------------------------------------
-  /// 2. SINKRONISASI AKUN KE SERVER (MySQL / Firebase) SAAT ONLINE
+  /// Autentikasi akun lokal saat HP offline
+  /// --------------------------------------------------------------------------
+  static Future<UserModel?> authenticateLocally({
+    required String email,
+    required String password,
+  }) async {
+    final cleanEmail = AuthService.sanitizeInput(email);
+    final accounts = await getAllLocalAccounts();
+    for (final acc in accounts) {
+      if (acc.email.toLowerCase() == cleanEmail.toLowerCase()) {
+        final decrypted = _decryptLocalData(acc.localEncryptedPassword ?? '');
+        if (decrypted == password) {
+          return acc;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// --------------------------------------------------------------------------
+  /// 2. SINKRONISASI AKUN KE SERVER (MySQL / Firebase / Database) SAAT ONLINE
   /// --------------------------------------------------------------------------
   /// Mengambil semua akun pending, mengirimkan ke server, dan menghapus
-  /// kata sandi lokal begitu berhasil disimpan di server MySQL / Firebase.
+  /// kata sandi lokal begitu berhasil disimpan di database server.
   static Future<SyncResult> syncPendingAccountsToServer({
     String? backendRegisterUrl,
   }) async {
@@ -162,25 +181,19 @@ class OfflineSyncService {
       }
 
       try {
-        // Simulasi pendaftaran ke server backend (MySQL via REST API / Firebase Auth)
-        // Di aplikasi produksi:
-        // if (backendRegisterUrl != null) {
-        //   final client = HttpClient();
-        //   ... POST data akun ke server ...
-        // }
-        await Future.delayed(const Duration(milliseconds: 1200));
+        // Simulasi pengiriman data akun ke database server
+        await Future.delayed(const Duration(milliseconds: 900));
 
         // Sukses tersimpan di server!
         successCount++;
-        logMessages.add('Berhasil menyinkronkan ${account.email} ke server.');
+        logMessages.add('Berhasil menyinkronkan ${account.email} ke database.');
 
         // Update status akun di HP:
-        // PENTING: Hapus localEncryptedPassword setelah akun aman di server!
         final index = allAccounts.indexWhere((a) => a.id == account.id);
         if (index != -1) {
           allAccounts[index] = allAccounts[index].copyWith(
             syncStatus: SyncStatus.synced,
-            localEncryptedPassword: null, // Hapus password dari HP demi privasi
+            localEncryptedPassword: null, // Hapus password dari HP demi keamanan
             lastSyncAttempt: DateTime.now(),
           );
         }

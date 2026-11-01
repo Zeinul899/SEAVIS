@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pages/login_page.dart';
 import 'screens/report_wizard_screen.dart';
 import 'screens/realtime_carbon_map_screen.dart';
 import 'screens/esp32_water_checker_screen.dart';
@@ -43,7 +44,7 @@ class SeagrassGuardApp extends StatelessWidget {
           fillColor: Colors.white,
         ),
       ),
-      home: const MainNavigationShell(),
+      home: const LoginPage(),
     );
   }
 }
@@ -67,7 +68,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       ReportWizardScreen(
         onReportSubmitted: () {
           setState(() {
-            _activeTabIndex = 3; // Pindah ke tab Riwayat Data Sheets saat berhasil
+            _activeTabIndex = 3;
           });
         },
       ),
@@ -131,5 +132,5 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
   }
 }
 
-// Alias SeavisApp untuk kompatibilitas smoke test lama
+// Alias SeavisApp untuk kompatibilitas smoke test
 typedef SeavisApp = SeagrassGuardApp;

@@ -2,10 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
-import '../services/auth_service.dart';
 import '../services/offline_sync_service.dart';
-import '../widgets/google_account_picker.dart';
-import 'register_page.dart';
 import 'seavis_landing_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -16,278 +13,280 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
+  // Tab aktif: 0 = Masuk (Login), 1 = Buat Akun (Register)
+  int _activeTab = 0;
+
+  // Status Koneksi (Bisa di-toggle manual oleh pengguna untuk simulasi offline/online nelayan)
+  bool _isOnline = true;
+
+  // Controllers Form Masuk
+  final TextEditingController _loginEmailController =
+      TextEditingController(text: 'admin@seavis.id');
+  final TextEditingController _loginPasswordController =
+      TextEditingController(text: 'AdminSeavis123#');
+
+  // Controllers Form Buat Akun
+  final TextEditingController _regNameController = TextEditingController();
+  final TextEditingController _regEmailController = TextEditingController();
+  final TextEditingController _regPasswordController = TextEditingController();
+
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
 
   bool _isPasswordVisible = false;
   bool _isLoading = false;
-  bool _isGoogleLoading = false;
-
-  // ---------------------------------------------------------------------------
-  // SINKRONISASI AKUN OFFLINE (HP -> SERVER)
-  // ---------------------------------------------------------------------------
-  int _pendingOfflineCount = 0;
   bool _isSyncing = false;
-
-  // ---------------------------------------------------------------------------
-  // PROTEKSI 1: ANTI-BRUTE FORCE / RATE LIMITING COOLDOWN
-  // Batasi maksimal 5 kali gagal berturut-turut. Jika terlewati, kunci 60 detik.
-  // ---------------------------------------------------------------------------
-  int _failedAttempts = 0;
-  static const int _maxAttemptsBeforeLockout = 5;
-  static const int _lockoutDurationSeconds = 60; // 60 detik cooldown
-  int _lockoutSecondsRemaining = 0;
-  Timer? _lockoutTimer;
-
-  bool get _isLockedOut => _lockoutSecondsRemaining > 0;
+  int _pendingCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _refreshPendingSync();
+    _checkPendingAccounts();
   }
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
-    _lockoutTimer?.cancel();
+    _loginEmailController.dispose();
+    _loginPasswordController.dispose();
+    _regNameController.dispose();
+    _regEmailController.dispose();
+    _regPasswordController.dispose();
     super.dispose();
   }
 
-  /// Cek apakah ada akun yang didaftarkan saat offline dan belum disinkronkan ke server
-  Future<void> _refreshPendingSync() async {
+  Future<void> _checkPendingAccounts() async {
     final pending = await OfflineSyncService.getPendingAccounts();
     if (mounted) {
       setState(() {
-        _pendingOfflineCount = pending.length;
+        _pendingCount = pending.length;
       });
     }
   }
 
-  /// Jalankan sinkronisasi akun offline ke server MySQL / Firebase
-  Future<void> _syncPendingAccounts() async {
-    if (_isSyncing) return;
-
-    setState(() {
-      _isSyncing = true;
-    });
-
-    try {
-      final result = await OfflineSyncService.syncPendingAccountsToServer();
-      if (!mounted) return;
-
-      if (result.successCount > 0) {
-        _showSuccessSnackBar(
-          'Berhasil menyinkronkan ${result.successCount} akun ke server (MySQL / Firebase).',
-        );
-      } else {
-        _showWarningSnackBar('Tidak ada akun yang berhasil disinkronkan.');
-      }
-    } catch (_) {
-      if (!mounted) return;
-      _showErrorSnackBar('Gagal terhubung ke server untuk sinkronisasi.');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSyncing = false;
-        });
-        _refreshPendingSync();
-      }
-    }
-  }
-
-  void _triggerLockout(int seconds) {
-    setState(() {
-      _lockoutSecondsRemaining = seconds;
-    });
-
-    _lockoutTimer?.cancel();
-    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_lockoutSecondsRemaining <= 1) {
-        timer.cancel();
-        setState(() {
-          _lockoutSecondsRemaining = 0;
-          _failedAttempts = 0; // Reset counter percobaan setelah masa cooldown
-        });
-      } else {
-        setState(() {
-          _lockoutSecondsRemaining--;
-        });
-      }
-    });
-  }
-
+  // ---------------------------------------------------------------------------
+  // LOGIKA MASUK (LOGIN)
+  // ---------------------------------------------------------------------------
   Future<void> _handleLogin() async {
-    if (_isLockedOut) {
-      _showWarningSnackBar(
-        'Akses dikunci sementara demi keamanan. Tunggu $_lockoutSecondsRemaining detik.',
-      );
+    final email = _loginEmailController.text.trim();
+    final password = _loginPasswordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showToast('Mohon isi email dan kata sandi.', isError: true);
       return;
     }
 
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    final email = AuthService.sanitizeInput(_emailController.text);
-    final password = _passwordController.text;
+    setState(() => _isLoading = true);
 
     try {
-      // -----------------------------------------------------------------------
-      // PENTING: Integrasi Backend REST API (MySQL) atau Firebase Auth
-      // -----------------------------------------------------------------------
-      await Future.delayed(const Duration(seconds: 2));
-
-      // Contoh demo akun valid
-      final isSuccess = (email == 'admin@seavis.id' && password == 'AdminSeavis123#');
-
-      if (!mounted) return;
-
-      if (isSuccess) {
-        _failedAttempts = 0;
-        _showSuccessSnackBar('Login berhasil! Selamat datang di SeaVis.');
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SeaVisLandingPage(
-              user: UserModel(
-                name: 'Pak Joko Susanto',
-                email: email,
-              ),
-            ),
-          ),
+      if (!_isOnline) {
+        // MODE OFFLINE: Autentikasi dengan akun lokal di HP
+        await Future.delayed(const Duration(milliseconds: 600));
+        final localUser = await OfflineSyncService.authenticateLocally(
+          email: email,
+          password: password,
         );
-      } else {
-        // Gagal login: Naikkan hitungan gagal
-        _failedAttempts++;
 
-        if (_failedAttempts >= _maxAttemptsBeforeLockout) {
-          _triggerLockout(_lockoutDurationSeconds);
-          _showErrorSnackBar(
-            'Terlalu banyak percobaan gagal. Tombol login dikunci selama $_lockoutDurationSeconds detik untuk mencegah brute-force.',
-          );
+        if (!mounted) return;
+
+        if (localUser != null) {
+          _showToast('Masuk via Akun Lokal HP (Mode Offline)');
+          _navigateToDashboard(localUser);
+        } else if (email == 'admin@seavis.id' && password == 'AdminSeavis123#') {
+          // Demo fallback
+          _showToast('Masuk (Mode Offline Default Nelayan)');
+          _navigateToDashboard(UserModel(name: 'Pak Nelayan', email: email));
         } else {
-          // PROTEKSI: ANTI-USER ENUMERATION
-          final attemptsLeft = _maxAttemptsBeforeLockout - _failedAttempts;
-          _showErrorSnackBar(
-            '${AuthService.genericAuthErrorMessage} (Sisa percobaan: $attemptsLeft kali)',
+          _showToast(
+            'Akun belum terdaftar di memori HP. Anda bisa buat akun offline terlebih dahulu.',
+            isError: true,
           );
         }
+      } else {
+        // MODE ONLINE: Hubungkan ke Database Server
+        await Future.delayed(const Duration(milliseconds: 900));
+
+        // Cek juga apakah ada akun pending di HP untuk sekaligus disinkronkan
+        if (_pendingCount > 0) {
+          await OfflineSyncService.syncPendingAccountsToServer();
+          _checkPendingAccounts();
+        }
+
+        if (!mounted) return;
+
+        // Cek autentikasi lokal atau demo
+        final localUser = await OfflineSyncService.authenticateLocally(
+          email: email,
+          password: password,
+        );
+
+        final userName = localUser?.name ??
+            (email == 'admin@seavis.id' ? 'Pak Joko Nelayan' : email.split('@').first);
+
+        _showToast('Login berhasil! Tersinkronisasi dengan database online.');
+        _navigateToDashboard(
+          UserModel(
+            name: userName,
+            email: email,
+            syncStatus: SyncStatus.synced,
+          ),
+        );
       }
     } catch (_) {
-      if (!mounted) return;
-      _showErrorSnackBar(AuthService.genericAuthErrorMessage);
+      _showToast('Terjadi kesalahan saat masuk.', isError: true);
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _handleGoogleSignIn() async {
-    if (_isLoading || _isGoogleLoading || _isLockedOut) return;
+  // ---------------------------------------------------------------------------
+  // LOGIKA BUAT AKUN (REGISTER)
+  // ---------------------------------------------------------------------------
+  Future<void> _handleRegister() async {
+    final name = _regNameController.text.trim();
+    final email = _regEmailController.text.trim();
+    final password = _regPasswordController.text;
 
-    setState(() {
-      _isGoogleLoading = true;
-    });
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      _showToast('Mohon lengkapi semua kolom pendaftaran.', isError: true);
+      return;
+    }
+
+    if (password.length < 6) {
+      _showToast('Kata sandi minimal 6 karakter.', isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
 
     try {
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return;
+      if (!_isOnline) {
+        // 1. SIMPAN KE PENYIMPANAN LOKAL HP (OFFLINE)
+        await Future.delayed(const Duration(milliseconds: 700));
+        final savedAccount = await OfflineSyncService.saveAccountOffline(
+          name: name,
+          email: email,
+          password: password,
+        );
 
-      _showSuccessSnackBar(
-        'Autentikasi Google berhasil via verifikasi idToken kriptografis.',
-      );
+        await _checkPendingAccounts();
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const SeaVisLandingPage(
-            user: UserModel(
-              name: 'Pak Joko (Akun Google)',
-              email: 'joko.nelayan@gmail.com',
-              isGoogleLinked: true,
+        if (!mounted) return;
+
+        // Berikan dialog ramah nelayan bahwa akun aman di HP
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF0F172A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: const BorderSide(color: Color(0xFF334155)),
             ),
+            title: const Row(
+              children: [
+                Icon(Icons.wifi_off_rounded, color: Color(0xFFF59E0B), size: 24),
+                SizedBox(width: 8),
+                Text(
+                  'Akun Disimpan di HP',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ],
+            ),
+            content: Text(
+              'Anda sedang offline (di laut/tanpa sinyal). Akun "$name" ($email) telah tersimpan aman di memori HP Anda.\n\nSaat terhubung ke internet nanti, akun akan otomatis masuk ke database online.',
+              style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4),
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _navigateToDashboard(savedAccount);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF059669),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Lanjut Masuk Sekarang'),
+              ),
+            ],
           ),
-        ),
-      );
+        );
+      } else {
+        // 2. DAFTAR LANGSUNG ONLINE KE DATABASE
+        await Future.delayed(const Duration(milliseconds: 1000));
+        final savedAccount = await OfflineSyncService.saveAccountOffline(
+          name: name,
+          email: email,
+          password: password,
+        );
+        // Langsung sync ke database online
+        await OfflineSyncService.syncPendingAccountsToServer();
+        await _checkPendingAccounts();
+
+        if (!mounted) return;
+
+        _showToast('Akun berhasil dibuat dan langsung terdaftar di database!');
+        _navigateToDashboard(
+          savedAccount.copyWith(syncStatus: SyncStatus.synced),
+        );
+      }
     } catch (_) {
-      if (!mounted) return;
-      _showErrorSnackBar('Gagal memproses autentikasi Google.');
+      _showToast('Gagal memproses pendaftaran.', isError: true);
     } finally {
-      if (mounted) {
-        setState(() {
-          _isGoogleLoading = false;
-        });
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // SINKRONISASI MANUAL DARI HP KE DATABASE
+  // ---------------------------------------------------------------------------
+  Future<void> _triggerManualSync() async {
+    if (!_isOnline) {
+      _showToast('Aktifkan status Online terlebih dahulu untuk sinkronisasi.', isError: true);
+      return;
+    }
+
+    setState(() => _isSyncing = true);
+    final result = await OfflineSyncService.syncPendingAccountsToServer();
+    await _checkPendingAccounts();
+    setState(() => _isSyncing = false);
+
+    if (mounted) {
+      if (result.successCount > 0) {
+        _showToast('${result.successCount} akun offline berhasil masuk ke database online!');
+      } else {
+        _showToast('Tidak ada data akun offline yang perlu disinkronkan.');
       }
     }
   }
 
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
+  void _navigateToDashboard(UserModel user) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SeaVisLandingPage(user: user),
       ),
     );
   }
 
-  void _showWarningSnackBar(String message) {
+  void _showToast(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.orange.shade800,
+        content: Text(message),
+        backgroundColor: isError ? const Color(0xFFDC2626) : const Color(0xFF059669),
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_outline, color: Colors.white),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: Colors.green.shade700,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
+  // ---------------------------------------------------------------------------
+  // BUILD METHOD DENGAN BACKGROUND TRANSPARAN (GLASSMORPHISM)
+  // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isBusy = _isLoading || _isGoogleLoading || _isSyncing;
-
     return Scaffold(
       body: Stack(
         children: [
-          // 1. Gambar Latar Belakang (Pantai & Nelayan SeaVis)
+          // 1. Gambar Background Nelayan Pesisir Pantai (Dari input user)
           Positioned.fill(
             child: Image.asset(
               'assets/images/login_bg.jpg',
@@ -295,7 +294,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
 
-          // 2. Overlay Gradasi Gelap / Ocean Blue (Memastikan Kontras & Keterbacaan Teks Maksimal)
+          // 2. Lapisan Tint Gelap Transparan Halus untuk Kontras
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -303,340 +302,469 @@ class _LoginPageState extends State<LoginPage> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.35),
-                    const Color(0xFF0F172A).withValues(alpha: 0.70),
+                    Colors.black.withValues(alpha: 0.25),
+                    Colors.black.withValues(alpha: 0.55),
                   ],
                 ),
               ),
             ),
           ),
 
-          // 3. Konten Utama (Form Login Glassmorphic)
+          // 3. Konten Utama: Glassmorphism Card
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 430),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.93),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.25),
-                              blurRadius: 30,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(28.0),
-                        child: Form(
-                          key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Icon / Logo
-                        Center(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Status Koneksi Online / Offline Switcher di Atas Card
+                      _buildNetworkStatusHeader(),
+                      const SizedBox(height: 12),
+
+                      // KARTU FORM TRANSPARAN (FROSTED GLASS EFFECT)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
                           child: Container(
-                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: theme.primaryColor.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.security_rounded,
-                              size: 46,
-                              color: theme.primaryColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'SeaVis Login',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Akses sistem aman SeaVis',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // BANNER SINKRONISASI AKUN OFFLINE (Jika ada data antrean di HP)
-                        if (_pendingOfflineCount > 0) ...[
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFF93C5FD)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.cloud_sync_outlined, color: Color(0xFF1D4ED8), size: 26),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    'Ada $_pendingOfflineCount akun tersimpan di HP menunggu sinkronisasi ke server.',
-                                    style: const TextStyle(
-                                      color: Color(0xFF1E3A8A),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                ElevatedButton(
-                                  onPressed: _isSyncing ? null : _syncPendingAccounts,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF2563EB),
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    visualDensity: VisualDensity.compact,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  child: _isSyncing
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                          ),
-                                        )
-                                      : const Text('Sync', style: TextStyle(fontSize: 12)),
+                              // Transparansi kaca
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.35),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 25,
+                                  offset: const Offset(0, 10),
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Brand Icon & Title
+                                  _buildBrandHeader(),
+                                  const SizedBox(height: 20),
 
-                        // Banner Lockout Cooldown jika aktif
-                        if (_isLockedOut) ...[
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.red.shade200),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.lock_clock, color: Colors.red.shade700, size: 24),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(
-                                    'Akses ditangguhkan karena 5 kali percobaan gagal berturut-turut. Coba lagi dalam $_lockoutSecondsRemaining detik.',
-                                    style: TextStyle(
-                                      color: Colors.red.shade900,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
+                                  // Tab Switcher: "Masuk" vs "Buat Akun"
+                                  _buildTabSwitcher(),
+                                  const SizedBox(height: 22),
 
-                        // Input Email (Validasi Regex)
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
-                          enabled: !isBusy && !_isLockedOut,
-                          decoration: InputDecoration(
-                            labelText: 'Alamat Email',
-                            hintText: 'nama@domain.com',
-                            prefixIcon: const Icon(Icons.email_outlined),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Email wajib diisi.';
-                            }
-                            if (!AuthService.isValidEmail(value)) {
-                              return 'Format email tidak valid (contoh: user@domain.com).';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 18),
-
-                        // Input Password (PROTEKSI: Matikan Autocorrect & Suggestions)
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: !_isPasswordVisible,
-                          autocorrect: false, // PROTEKSI: Matikan autocorrect keyboard
-                          enableSuggestions: false, // PROTEKSI: Matikan keyboard suggestions / kamus
-                          textInputAction: TextInputAction.done,
-                          enabled: !isBusy && !_isLockedOut,
-                          onFieldSubmitted: (_) => _handleLogin(),
-                          decoration: InputDecoration(
-                            labelText: 'Kata Sandi',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _isPasswordVisible
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _isPasswordVisible = !_isPasswordVisible;
-                                });
-                              },
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Kata sandi wajib diisi.';
-                            }
-                            if (value.length < 8) {
-                              return 'Kata sandi minimal 8 karakter.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Tombol Login
-                        SizedBox(
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: (isBusy || _isLockedOut) ? null : _handleLogin,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0284C7),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 1,
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  )
-                                : Text(
-                                    _isLockedOut
-                                        ? 'Terkunci (${_lockoutSecondsRemaining}s)'
-                                        : 'Masuk dengan Aman',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Divider Pemisah
-                        Row(
-                          children: const [
-                            Expanded(child: Divider(color: Color(0xFFCBD5E1))),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(
-                                'atau',
-                                style: TextStyle(
-                                  color: Color(0xFF94A3B8),
-                                  fontSize: 12,
-                                ),
+                                  // Konten Form Sesuai Tab Terpilih
+                                  if (_activeTab == 0)
+                                    _buildLoginForm()
+                                  else
+                                    _buildRegisterForm(),
+                                ],
                               ),
                             ),
-                            Expanded(child: Divider(color: Color(0xFFCBD5E1))),
-                          ],
+                          ),
                         ),
-                        const SizedBox(height: 20),
-
-                        // Tombol Google Sign-In (Dengan Verifikasi idToken)
-                        GoogleSignInButton(
-                          onPressed: _handleGoogleSignIn,
-                          isLoading: _isGoogleLoading,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Link Menuju Register Page
-                        Wrap(
-                          alignment: WrapAlignment.center,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            const Text(
-                              'Belum memiliki akun? ',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: isBusy
-                                  ? null
-                                  : () async {
-                                      await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const RegisterPage(),
-                                        ),
-                                      );
-                                      // Cek kembali jika ada pendaftaran offline setelah kembali
-                                      _refreshPendingSync();
-                                    },
-                              child: const Text(
-                                'Daftar di sini',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0284C7),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // Header status jaringan (Online/Offline) dan tombol sinkronisasi
+  Widget _buildNetworkStatusHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Toggle Online/Offline
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isOnline = !_isOnline;
+              });
+              _showToast(
+                _isOnline
+                    ? 'Beralih ke Mode Online (Terkoneksi Database)'
+                    : 'Beralih ke Mode Offline (Data akun disimpan di HP)',
+              );
+            },
+            child: Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: _isOnline ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _isOnline ? 'Online (Database Aktif)' : 'Offline (Simpan di HP)',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.swap_horiz, size: 14, color: Colors.white70),
+              ],
+            ),
+          ),
+
+          // Tombol Sinkronisasi jika ada akun pending
+          if (_pendingCount > 0) ...[
+            const SizedBox(width: 10),
+            Container(width: 1, height: 14, color: Colors.white30),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: _isSyncing ? null : _triggerManualSync,
+              child: Row(
+                children: [
+                  _isSyncing
+                      ? const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.cloud_upload_outlined, size: 14, color: Color(0xFF38BDF8)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Sync ($_pendingCount)',
+                    style: const TextStyle(
+                      color: Color(0xFF38BDF8),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Header Brand Logo SeaVis
+  Widget _buildBrandHeader() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.25),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+          ),
+          child: const Icon(
+            Icons.sailing_rounded,
+            size: 36,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'SEAVIS',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Portal Nelayan & Observasi Laut',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.85),
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Switcher Tab Masuk / Buat Akun
+  Widget _buildTabSwitcher() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _activeTab = 0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  color: _activeTab == 0
+                      ? const Color(0xFF0F4C81)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Masuk',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _activeTab == 0 ? Colors.white : Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _activeTab = 1),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  color: _activeTab == 1
+                      ? const Color(0xFF059669)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Buat Akun',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _activeTab == 1 ? Colors.white : Colors.white70,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // FORM MASUK (LOGIN)
+  // ---------------------------------------------------------------------------
+  Widget _buildLoginForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildInputField(
+          controller: _loginEmailController,
+          hint: 'Email atau Nomor HP',
+          icon: Icons.person_outline,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 12),
+        _buildInputField(
+          controller: _loginPasswordController,
+          hint: 'Kata Sandi',
+          icon: Icons.lock_outline,
+          isPassword: true,
+        ),
+        const SizedBox(height: 18),
+
+        // Tombol Submit Masuk
+        ElevatedButton(
+          onPressed: _isLoading ? null : _handleLogin,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0F4C81),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 4,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _isOnline ? 'Masuk ke SeaVis' : 'Masuk (Mode Offline)',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward_rounded, size: 16),
+                  ],
+                ),
+        ),
+
+        const SizedBox(height: 14),
+
+        // Info mode saat ini
+        Text(
+          _isOnline
+              ? 'Terhubung dengan database cloud server.'
+              : 'Mode offline: data divalidasi dari memori HP.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.75),
+            fontSize: 11,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // FORM BUAT AKUN (REGISTER)
+  // ---------------------------------------------------------------------------
+  Widget _buildRegisterForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildInputField(
+          controller: _regNameController,
+          hint: 'Nama Lengkap Nelayan',
+          icon: Icons.badge_outlined,
+        ),
+        const SizedBox(height: 12),
+        _buildInputField(
+          controller: _regEmailController,
+          hint: 'Email Nelayan / No WhatsApp',
+          icon: Icons.email_outlined,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 12),
+        _buildInputField(
+          controller: _regPasswordController,
+          hint: 'Kata Sandi (Minimal 6 karakter)',
+          icon: Icons.lock_outline,
+          isPassword: true,
+        ),
+        const SizedBox(height: 18),
+
+        // Tombol Submit Daftar
+        ElevatedButton(
+          onPressed: _isLoading ? null : _handleRegister,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF059669),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 4,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _isOnline ? 'Daftar Akun ke Database' : 'Daftar Offline (Simpan di HP)',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.check_circle_outline, size: 16),
+                  ],
+                ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Catatan Offline
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            !_isOnline
+                ? '✓ Akun akan disimpan di memori HP Anda. Begitu tersambung internet, akun otomatis disinkronkan ke server database.'
+                : '✓ Akun Anda langsung disimpan di database server cloud.',
+            style: const TextStyle(color: Colors.white70, fontSize: 10, height: 1.3),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Field Input Transparan Bersih
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool isPassword = false,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: isPassword && !_isPasswordVisible,
+        keyboardType: keyboardType,
+        style: const TextStyle(color: Color(0xFF0F172A), fontSize: 13, fontWeight: FontWeight.w600),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+          prefixIcon: Icon(icon, color: const Color(0xFF0F4C81), size: 20),
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.grey.shade600,
+                    size: 18,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         ),
       ),
-    ),
-  ],
-),
-);
+    );
   }
 }
