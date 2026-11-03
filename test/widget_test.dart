@@ -47,7 +47,7 @@ void main() {
     expect(find.text('Mengandung huruf besar (A-Z)'), findsOneWidget);
   });
 
-  testWidgets('SEAVIS Dashboard Landing Page matches Canva wireframe (Greeting, Saldo, Cash Out, Tata Cara)',
+  testWidgets('SEAVIS Dashboard Landing Page matches reference design (Profile Card, Map, GPS, Guidelines, Photo/AI Cards & Bottom Nav)',
       (WidgetTester tester) async {
     const testUser = UserModel(
       name: 'Pak Anto',
@@ -61,19 +61,40 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 1. Verifikasi Header Profil (Nama & Email sesuai login)
-    expect(find.textContaining('Pak Anto'), findsWidgets);
-    expect(find.text('Email: Anto@mail.com'), findsOneWidget);
-
-    // 2. Verifikasi Banner Saldo & Tombol Cash Out
+    // 1. Verifikasi Header Profil Card (Role, Nama, Email, Status Online, Saldo, Sisa Kuota)
+    expect(find.text('FIELD SURVEYOR'), findsOneWidget);
+    expect(find.text('PAK ANTO'), findsOneWidget);
+    expect(find.text('Anto@mail.com'), findsOneWidget);
+    expect(find.text('ONLINE'), findsOneWidget);
+    expect(find.text('Hari Pertama'), findsOneWidget);
+    expect(find.text('SALDO SURVEYOR'), findsOneWidget);
     expect(find.text('Rp 540.000'), findsOneWidget);
-    expect(find.text('Cash Out'), findsOneWidget);
+    expect(find.text('SISA KUOTA HARI INI'), findsOneWidget);
+    expect(find.text('Tanggal Tugas: 30 Mei 2026'), findsOneWidget);
 
-    // 3. Verifikasi Card Upload Foto Padang Lamun & Tata Cara
-    expect(find.text('Upload Foto Padang Lamun'), findsOneWidget);
-    expect(find.text('Tata Cara Pengambilan Foto yang Benar:'), findsOneWidget);
-    expect(find.text('Rp 25.000 / Foto'), findsOneWidget);
-    expect(find.text('Ambil Foto Lamun Sekarang'), findsOneWidget);
+    // 2. Verifikasi Live Coastal Map Card
+    expect(find.text('LIVE COASTAL MAP'), findsOneWidget);
+    expect(find.text('Click to view seagrass distribution area'), findsOneWidget);
+
+    // 3. Verifikasi GPS Coordinate Card
+    expect(find.textContaining('X8GH+6Q8, Parangtritis'), findsOneWidget);
+
+    // 4. Verifikasi Panduan 4 Sudut Foto (Angle)
+    expect(find.text('PANDUAN 4 SUDUT FOTO (ANGLE)'), findsOneWidget);
+    expect(find.textContaining('1. Atas (Tegak lurus menghadap objek)'), findsOneWidget);
+
+    // 5. Verifikasi Dual Action Cards: Ambil Foto 1 & AI Scan Result
+    expect(find.text('Ambil Foto 1: Tampak Atas'), findsOneWidget);
+    expect(find.text('AI SCAN RESULT:'), findsOneWidget);
+    expect(find.text('Belum ada foto'), findsOneWidget);
+
+    // 6. Verifikasi Conservation Gallery & Bottom Navigation Bar
+    expect(find.text('CONSERVATION GALLERY'), findsOneWidget);
+    expect(find.text('SEAGRASS GUARD v1.0'), findsOneWidget);
+    expect(find.text('Form'), findsOneWidget);
+    expect(find.text('Saldo'), findsOneWidget);
+    expect(find.text('History'), findsOneWidget);
+    expect(find.text('AI Chat'), findsOneWidget);
   });
 
   testWidgets('SEAVIS Profile Page shows complete partnership info & duration',
