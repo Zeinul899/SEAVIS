@@ -1,12 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/user_model.dart';
 import '../models/fisherman_data.dart';
+import '../models/seagrass_report_model.dart';
 import '../services/ai_verification_service.dart';
 import '../services/location_map_service.dart';
+import '../services/esp32_support_service.dart';
 import '../screens/realtime_carbon_map_screen.dart';
 import '../screens/sheets_history_screen.dart';
+import '../screens/esp32_water_checker_screen.dart';
 import 'profile_page.dart';
 
 class SeaVisLandingPage extends StatefulWidget {
@@ -84,6 +88,10 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   bool _isProcessingWithdraw = false;
   String _lastAiResultText = 'Belum ada foto';
 
+  // Layanan Pendukung IoT ESP32 (Kualitas Air & Karbon)
+  final Esp32SupportService _esp32Service = Esp32SupportService();
+  StreamSubscription<Esp32SupportData>? _esp32Subscription;
+
   @override
   void initState() {
     super.initState();
@@ -93,12 +101,18 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
     _fishermanEmail = widget.user?.email.isNotEmpty == true
         ? widget.user!.email
         : 'Anto@mail.com';
+
+    // Langganan stream telemetri ESP32
+    _esp32Subscription = _esp32Service.dataStream.listen((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     _photoNoteController.dispose();
     _withdrawAmountController.dispose();
+    _esp32Subscription?.cancel();
     super.dispose();
   }
 
@@ -113,8 +127,8 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
         );
   }
 
-  void _openProfilePage() {
-    Navigator.push(
+  void _openProfilePage() async {
+    final res = await Navigator.push<int>(
       context,
       MaterialPageRoute(
         builder: (_) => ProfilePage(
@@ -125,9 +139,19 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
               _fishermanName = newName;
             });
           },
+          onBalanceUpdated: (newBal) {
+            setState(() {
+              _currentBalance = newBal;
+            });
+          },
         ),
       ),
     );
+    if (res != null && mounted) {
+      setState(() {
+        _currentBalance = res;
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -177,12 +201,12 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFBCE062),
+                            color: const Color(0xFFDCFCE7),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(
-                            Icons.local_atm_rounded,
-                            color: Color(0xFF1E293B),
+                            Icons.account_balance_wallet_rounded,
+                            color: Color(0xFF15803D),
                             size: 24,
                           ),
                         ),
@@ -216,7 +240,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
@@ -236,7 +260,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF0F5A47),
                             ),
                           ),
                         ],
@@ -265,12 +289,12 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: _selectedWithdrawMethod == 'DANA'
-                                    ? const Color(0xFFEFF6FF)
+                                    ? const Color(0xFFF0FDF4)
                                     : Colors.white,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: _selectedWithdrawMethod == 'DANA'
-                                      ? const Color(0xFF0284C7)
+                                      ? const Color(0xFF0F5A47)
                                       : const Color(0xFFCBD5E1),
                                   width: _selectedWithdrawMethod == 'DANA' ? 2 : 1,
                                 ),
@@ -283,7 +307,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF0284C7),
+                                      color: Color(0xFF0F5A47),
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -307,12 +331,12 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: _selectedWithdrawMethod == 'BRI'
-                                    ? const Color(0xFFEFF6FF)
+                                    ? const Color(0xFFF0FDF4)
                                     : Colors.white,
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: _selectedWithdrawMethod == 'BRI'
-                                      ? const Color(0xFF0284C7)
+                                      ? const Color(0xFF0F5A47)
                                       : const Color(0xFFCBD5E1),
                                   width: _selectedWithdrawMethod == 'BRI' ? 2 : 1,
                                 ),
@@ -325,7 +349,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
-                                      color: Color(0xFF0F4C81),
+                                      color: Color(0xFF0F5A47),
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -370,12 +394,15 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                     Wrap(
                       spacing: 8,
                       children: [50000, 100000, 200000, _currentBalance].map((nominal) {
+                        final isAll = nominal == _currentBalance;
                         return ActionChip(
+                          backgroundColor: const Color(0xFFF0FDF4),
+                          side: const BorderSide(color: Color(0xFFBBF7D0)),
                           label: Text(
-                            nominal == _currentBalance
+                            isAll
                                 ? 'Tarik Semua'
                                 : 'Rp ${_formatCurrency(nominal)}',
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
                           ),
                           onPressed: () {
                             setSheetState(() {
@@ -396,7 +423,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                             ? null
                             : () => _handleWithdrawal(ctx),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E293B),
+                          backgroundColor: const Color(0xFF0F5A47),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -929,6 +956,29 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                 'Koordinat GPS Terkunci: ${gps.latitude.toStringAsFixed(5)}, ${gps.longitude.toStringAsFixed(5)}',
                 style: const TextStyle(fontSize: 11.5, color: Color(0xFF0284C7), fontWeight: FontWeight.w600),
               ),
+              if (_esp32Service.isConnected) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.sensors, size: 16, color: Color(0xFF15803D)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Data ESP32 Terlampir: Suhu ${_esp32Service.currentData.waterTempC}°C, pH ${_esp32Service.currentData.ph}, TDS ${_esp32Service.currentData.tdsPpm} ppm (${_esp32Service.currentData.waterCarbonStatus})',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -991,7 +1041,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Padding(
+      builder: (ctx) => SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1103,6 +1153,10 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
 
                       // 4. PANDUAN 4 SUDUT FOTO (ANGLE) CARD
                       _buildAngleGuidelineCard(),
+                      const SizedBox(height: 12),
+
+                      // 4b. PENGHUBUNG IOT ESP32 WATER CHECKER (BLE)
+                      _buildEsp32LiveCard(),
                       const SizedBox(height: 14),
 
                       // 5. TWO SIDE-BY-SIDE PHOTO & AI SCAN CARDS
@@ -1493,6 +1547,153 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
               height: 1.5,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEsp32LiveCard() {
+    final bool isConnected = _esp32Service.isConnected;
+    final currentEsp = _esp32Service.currentData;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const Esp32WaterCheckerScreen()),
+        ).then((_) => setState(() {}));
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: isConnected ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.sensors_rounded,
+                    color: isConnected ? const Color(0xFF15803D) : const Color(0xFF64748B),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'ESP32 WATER CHECKER',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isConnected ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isConnected ? 'TERHUBUNG' : 'BLE AKTIF',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: isConnected ? const Color(0xFF15803D) : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        isConnected
+                            ? 'Sensor perairan aktif • Siap lampirkan data'
+                            : 'Alat pendukung kualitas air & karbon pesisir',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (isConnected) {
+                      _esp32Service.disconnectEsp32();
+                    } else {
+                      await _esp32Service.connectToEsp32();
+                    }
+                    setState(() {});
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isConnected ? const Color(0xFFFEE2E2) : const Color(0xFF0F5A47),
+                    foregroundColor: isConnected ? const Color(0xFFDC2626) : Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    isConnected ? 'Putus' : 'Hubungkan',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            if (isConnected) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _espLiveChip('Suhu', '${currentEsp.waterTempC ?? 28.5}°C'),
+                  _espLiveChip('pH', '${currentEsp.ph ?? 8.1}'),
+                  _espLiveChip('TDS', '${currentEsp.tdsPpm ?? 345} ppm'),
+                  _espLiveChip('Turbidity', '${currentEsp.turbidityNtu ?? 3.4} NTU'),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _espLiveChip(String label, String val) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFBBF7D0)),
+      ),
+      child: Column(
+        children: [
+          Text(label, style: const TextStyle(fontSize: 9.5, color: Color(0xFF15803D))),
+          Text(val, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF14532D))),
         ],
       ),
     );

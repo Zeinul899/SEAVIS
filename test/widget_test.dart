@@ -5,7 +5,9 @@ import 'package:seavis/main.dart';
 import 'package:seavis/models/user_model.dart';
 import 'package:seavis/pages/profile_page.dart';
 import 'package:seavis/pages/seavis_landing_page.dart';
+import 'package:seavis/screens/esp32_water_checker_screen.dart';
 import 'package:seavis/screens/realtime_carbon_map_screen.dart';
+import 'package:seavis/services/esp32_support_service.dart';
 import 'package:seavis/services/location_map_service.dart';
 import 'package:seavis/services/network_service.dart';
 
@@ -206,5 +208,104 @@ void main() {
     // Verifikasi Galeri diblokir / dinonaktifkan
     expect(find.text('Galeri HP'), findsNothing);
     expect(find.textContaining('Akses Galeri Dinonaktifkan'), findsOneWidget);
+  });
+
+  testWidgets('SEAVIS ESP32 IoT Water Checker Connector & Full Screen Monitor works seamlessly',
+      (WidgetTester tester) async {
+    final esp32Service = Esp32SupportService();
+    esp32Service.disconnectEsp32();
+
+    const testUser = UserModel(
+      name: 'Pak Anto',
+      email: 'Anto@mail.com',
+    );
+
+    // 1. Render Landing Page dengan ESP32 Connector
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SeaVisLandingPage(user: testUser),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verifikasi Card ESP32 di Dashboard
+    await tester.ensureVisible(find.text('ESP32 WATER CHECKER'));
+    await tester.pumpAndSettle();
+    expect(find.text('ESP32 WATER CHECKER'), findsOneWidget);
+    expect(find.text('BLE AKTIF'), findsOneWidget);
+
+    // 2. Hubungkan ESP32
+    await tester.tap(find.text('Hubungkan').first);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1100));
+    await tester.pumpAndSettle();
+
+    expect(find.text('TERHUBUNG'), findsOneWidget);
+    expect(find.text('Putus'), findsOneWidget);
+    expect(find.text('Suhu'), findsOneWidget);
+    expect(find.text('pH'), findsOneWidget);
+
+    // 3. Render Dedicated Screen Esp32WaterCheckerScreen
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Esp32WaterCheckerScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cek Kualitas Air ESP32'), findsOneWidget);
+    expect(find.textContaining('Suhu Air (DS18B20)'), findsOneWidget);
+    expect(find.textContaining('Keasaman (pH)'), findsOneWidget);
+    expect(find.textContaining('Salinitas / TDS'), findsOneWidget);
+    expect(find.textContaining('Kekeruhan (Turbidity)'), findsOneWidget);
+    expect(find.text('Indeks Karbon Perairan:'), findsOneWidget);
+    expect(find.text('OPTIMAL'), findsOneWidget);
+
+    esp32Service.disconnectEsp32();
+  });
+
+  testWidgets('SEAVIS Profile Page Cash Out flow handles presets and updates balance',
+      (WidgetTester tester) async {
+    const testUser = UserModel(
+      name: 'Pak Anto',
+      email: 'Anto@mail.com',
+    );
+
+    int updatedBalance = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProfilePage(
+          user: testUser,
+          currentBalance: 540000,
+          onBalanceUpdated: (newBal) {
+            updatedBalance = newBal;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Verifikasi Tombol Tarik Saldo
+    expect(find.text('Tarik Saldo'), findsOneWidget);
+    await tester.tap(find.text('Tarik Saldo'));
+    await tester.pumpAndSettle();
+
+    // 2. Verifikasi Modal Pencairan
+    expect(find.text('Pencairan Saldo Insentif'), findsOneWidget);
+    expect(find.text('Saldo Tersedia:'), findsOneWidget);
+    expect(find.text('Rp 540.000'), findsWidgets);
+    expect(find.text('Bank BRI'), findsWidgets);
+    expect(find.text('E-Wallet DANA'), findsWidgets);
+
+    // 3. Konfirmasi Pencairan Rp 50.000
+    await tester.tap(find.text('Konfirmasi Tarik Saldo'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 1000));
+    await tester.pumpAndSettle();
+
+    // Verifikasi Dialog Berhasil & Saldo Berkurang (540.000 - 50.000 = 490.000)
+    expect(find.text('Pencairan Berhasil'), findsOneWidget);
+    expect(updatedBalance, 490000);
   });
 }
