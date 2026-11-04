@@ -501,15 +501,14 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // PENGAMBILAN FOTO REAL-TIME (KAMERA & GALERI ASLI DENGAN IMAGE_PICKER)
+  // PENGAMBILAN FOTO REAL-TIME (HANYA KAMERA ASLI, GALERI DINONAKTIFKAN)
   // ---------------------------------------------------------------------------
-  Future<void> _capturePhotoFromSource(
-    ImageSource source,
+  Future<void> _capturePhotoFromCamera(
     StateSetter setSheetState,
   ) async {
     try {
       final XFile? picked = await _imagePicker.pickImage(
-        source: source,
+        source: ImageSource.camera,
         maxWidth: 1920,
         maxHeight: 1080,
         imageQuality: 85,
@@ -524,7 +523,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Gagal mengakses kamera/galeri: $e'),
+            content: Text('Gagal mengakses kamera perangkat: $e'),
             backgroundColor: const Color(0xFFDC2626),
           ),
         );
@@ -595,146 +594,102 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Foto Lamun Real-Time',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Foto Lamun Real-Time',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                ),
                               ),
-                            ),
-                            Text(
-                              'Ambil foto asli untuk verifikasi AI & GPS',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF64748B),
+                              Text(
+                                'Wajib kamera asli di pantai (Galeri HP Dilarang)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
 
                     const SizedBox(height: 18),
 
-                    // Area Preview Foto Asli atau Pilihan Kamera/Galeri
+                    // Area Preview Foto Asli atau Tombol Buka Kamera (Galeri Dinonaktifkan)
                     if (_realCapturedPhoto == null) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => _capturePhotoFromSource(
-                                ImageSource.camera,
-                                setSheetState,
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF0FDF4),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: const Color(0xFF86EFAC),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: const Column(
-                                  children: [
-                                    Icon(
-                                      Icons.camera_alt_rounded,
-                                      size: 36,
-                                      color: Color(0xFF15803D),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      'Buka Kamera',
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF15803D),
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'Foto Asli Sudut 90°',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF475569),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                      GestureDetector(
+                        onTap: () => _capturePhotoFromCamera(setSheetState),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: const Color(0xFF16A34A),
+                              width: 1.8,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => _capturePhotoFromSource(
-                                ImageSource.gallery,
-                                setSheetState,
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF8FAFC),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: const Color(0xFFCBD5E1),
-                                    width: 1.5,
-                                  ),
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF15803D),
+                                  shape: BoxShape.circle,
                                 ),
-                                child: const Column(
-                                  children: [
-                                    Icon(
-                                      Icons.photo_library_rounded,
-                                      size: 36,
-                                      color: Color(0xFF0F4C81),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      'Galeri HP',
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF0F4C81),
-                                      ),
-                                    ),
-                                    SizedBox(height: 2),
-                                    Text(
-                                      'Pilih Foto Asli',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF475569),
-                                      ),
-                                    ),
-                                  ],
+                                child: const Icon(
+                                  Icons.camera_alt_rounded,
+                                  size: 38,
+                                  color: Colors.white,
                                 ),
                               ),
-                            ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'Buka Kamera Langsung',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF15803D),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Wajib foto real-time di pantai (Sudut 90° Tegak Lurus)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF475569),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7),
+                          color: const Color(0xFFFEF2F2),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
+                          border: Border.all(color: const Color(0xFFFECACA)),
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
+                            Icon(Icons.shield_outlined, color: Color(0xFFDC2626), size: 18),
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'Harap gunakan foto asli (bukan simulasi/tes) agar verifikasi AI lolos minimal 80%.',
+                                'Akses Galeri Dinonaktifkan: Untuk menjaga integritas data riset padang lamun, foto wajib diambil langsung menggunakan kamera HP saat di lokasi pantai.',
                                 style: TextStyle(
                                   fontSize: 11.5,
-                                  color: Color(0xFF92400E),
+                                  color: Color(0xFF991B1B),
+                                  height: 1.4,
                                 ),
                               ),
                             ),

@@ -1,18 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:seavis/main.dart';
 import 'package:seavis/models/user_model.dart';
 import 'package:seavis/pages/profile_page.dart';
 import 'package:seavis/pages/seavis_landing_page.dart';
+import 'package:seavis/screens/realtime_carbon_map_screen.dart';
+import 'package:seavis/services/location_map_service.dart';
 import 'package:seavis/services/network_service.dart';
 
 void main() {
   setUp(() {
     NetworkService.setMockStatus(true);
+    LocationMapService.mockPosition = Position(
+      latitude: -6.5528,
+      longitude: 110.6508,
+      timestamp: DateTime.now(),
+      accuracy: 5.0,
+      altitude: 0.0,
+      altitudeAccuracy: 0.0,
+      heading: 0.0,
+      headingAccuracy: 0.0,
+      speed: 0.0,
+      speedAccuracy: 0.0,
+    );
   });
 
   tearDown(() {
     NetworkService.setMockStatus(null);
+    LocationMapService.mockPosition = null;
   });
 
   testWidgets('SEAVIS Login Page smoke test (Title, Tagline, Labels & Password Guidance)',
@@ -124,5 +140,71 @@ void main() {
     expect(find.text('Rp 540.000'), findsOneWidget);
     expect(find.text('Bank BRI'), findsOneWidget);
     expect(find.text('E-Wallet DANA'), findsOneWidget);
+  });
+
+  testWidgets('SEAVIS Live Coastal Map renders Indonesian Archipelago & Real Seagrass Sites',
+      (WidgetTester tester) async {
+    RealtimeCarbonMapScreen.enableInfiniteAnimation = false;
+
+    // 1. Verifikasi Database Sebaran Padang Lamun Nasional Valid (Bukan Simulasi)
+    expect(LocationMapService.verifiedIndonesianSites.length, 17);
+    final jeparaSite = LocationMapService.verifiedIndonesianSites.first;
+    expect(jeparaSite.name, 'Pantai Bandengan, Jepara');
+    expect(jeparaSite.dominantSpecies, 'Enhalus acoroides');
+    expect(jeparaSite.estimatedCarbonTonHa, 148.5);
+
+    // 2. Render Screen RealtimeCarbonMapScreen
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: RealtimeCarbonMapScreen(),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // 3. Verifikasi Header & Peta Indonesia Offline
+    expect(find.text('Live Coastal Map Indonesia'), findsOneWidget);
+    expect(find.text('Map Offline • Data Ilmiah BRIN / LIPI'), findsOneWidget);
+
+    // 4. Verifikasi Filter Wilayah Kepulauan
+    expect(find.textContaining('Seluruh Indonesia'), findsOneWidget);
+    expect(find.textContaining('Jawa'), findsWidgets);
+
+    // 5. Verifikasi Detail Card Padang Lamun Valid
+    expect(find.text('Pantai Bandengan, Jepara'), findsWidgets);
+    expect(find.text('ZONA KARBON TINGGI'), findsOneWidget);
+    expect(find.text('Enhalus acoroides'), findsOneWidget);
+    expect(find.textContaining('Pusat Riset Oseanografi BRIN'), findsOneWidget);
+  });
+
+  testWidgets('SEAVIS Photo Upload flow strictly enforces camera and blocks gallery',
+      (WidgetTester tester) async {
+    const testUser = UserModel(
+      name: 'Pak Anto',
+      email: 'Anto@mail.com',
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SeaVisLandingPage(user: testUser),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Scroll sampai card Ambil Foto 1 terlihat
+    await tester.ensureVisible(find.text('Ambil Foto 1: Tampak Atas'));
+    await tester.pumpAndSettle();
+
+    // Buka modal upload foto
+    await tester.tap(find.text('Ambil Foto 1: Tampak Atas'));
+    await tester.pumpAndSettle();
+
+    // Verifikasi tombol Buka Kamera Langsung ada
+    expect(find.text('Buka Kamera Langsung'), findsOneWidget);
+    expect(find.text('Wajib foto real-time di pantai (Sudut 90° Tegak Lurus)'), findsOneWidget);
+
+    // Verifikasi Galeri diblokir / dinonaktifkan
+    expect(find.text('Galeri HP'), findsNothing);
+    expect(find.textContaining('Akses Galeri Dinonaktifkan'), findsOneWidget);
   });
 }
