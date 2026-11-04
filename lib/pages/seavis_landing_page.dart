@@ -1153,11 +1153,13 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
 
                       // 4. PANDUAN 4 SUDUT FOTO (ANGLE) CARD
                       _buildAngleGuidelineCard(),
-                      const SizedBox(height: 12),
-
-                      // 4b. PENGHUBUNG IOT ESP32 WATER CHECKER (BLE)
-                      _buildEsp32LiveCard(),
                       const SizedBox(height: 14),
+
+                      // 4b. SENSOR ESP32 KUALITAS AIR (HANYA MUNCUL JIKA TERHUBUNG / ADA)
+                      if (_esp32Service.isConnected) ...[
+                        _buildEsp32ActiveBanner(),
+                        const SizedBox(height: 14),
+                      ],
 
                       // 5. TWO SIDE-BY-SIDE PHOTO & AI SCAN CARDS
                       _buildPhotoAndAiRow(),
@@ -1552,8 +1554,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
     );
   }
 
-  Widget _buildEsp32LiveCard() {
-    final bool isConnected = _esp32Service.isConnected;
+  Widget _buildEsp32ActiveBanner() {
     final currentEsp = _esp32Service.currentData;
 
     return GestureDetector(
@@ -1564,10 +1565,10 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
         ).then((_) => setState(() {}));
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.08),
@@ -1582,100 +1583,74 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: isConnected ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFDCFCE7),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.sensors_rounded,
-                    color: isConnected ? const Color(0xFF15803D) : const Color(0xFF64748B),
-                    size: 20,
+                    color: Color(0xFF15803D),
+                    size: 18,
                   ),
                 ),
                 const SizedBox(width: 10),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
-                          const Text(
-                            'ESP32 WATER CHECKER',
+                          Text(
+                            'ESP32 TERHUBUNG',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF15803D),
                               letterSpacing: 0.5,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: isConnected ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              isConnected ? 'TERHUBUNG' : 'BLE AKTIF',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: isConnected ? const Color(0xFF15803D) : const Color(0xFF64748B),
-                              ),
-                            ),
-                          ),
+                          SizedBox(width: 6),
+                          Icon(Icons.check_circle, size: 12, color: Color(0xFF16A34A)),
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 1),
                       Text(
-                        isConnected
-                            ? 'Sensor perairan aktif • Siap lampirkan data'
-                            : 'Alat pendukung kualitas air & karbon pesisir',
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        'Telemetri kualitas air aktif dilampirkan ke laporan',
+                        style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
                       ),
                     ],
                   ),
                 ),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (isConnected) {
-                      _esp32Service.disconnectEsp32();
-                    } else {
-                      await _esp32Service.connectToEsp32();
-                    }
+                TextButton(
+                  onPressed: () {
+                    _esp32Service.disconnectEsp32();
                     setState(() {});
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isConnected ? const Color(0xFFFEE2E2) : const Color(0xFF0F5A47),
-                    foregroundColor: isConnected ? const Color(0xFFDC2626) : Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    elevation: 0,
                   ),
-                  child: Text(
-                    isConnected ? 'Putus' : 'Hubungkan',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                  child: const Text(
+                    'Putus',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
                   ),
                 ),
               ],
             ),
-            if (isConnected) ...[
-              const SizedBox(height: 12),
-              const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _espLiveChip('Suhu', '${currentEsp.waterTempC ?? 28.5}°C'),
-                  _espLiveChip('pH', '${currentEsp.ph ?? 8.1}'),
-                  _espLiveChip('TDS', '${currentEsp.tdsPpm ?? 345} ppm'),
-                  _espLiveChip('Turbidity', '${currentEsp.turbidityNtu ?? 3.4} NTU'),
-                ],
-              ),
-            ],
+            const SizedBox(height: 10),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _espLiveChip('Suhu', '${currentEsp.waterTempC ?? 28.5}°C'),
+                _espLiveChip('pH', '${currentEsp.ph ?? 8.1}'),
+                _espLiveChip('TDS', '${currentEsp.tdsPpm ?? 345} ppm'),
+                _espLiveChip('Turbidity', '${currentEsp.turbidityNtu ?? 3.4} NTU'),
+              ],
+            ),
           ],
         ),
       ),

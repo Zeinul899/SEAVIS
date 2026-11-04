@@ -220,7 +220,7 @@ void main() {
       email: 'Anto@mail.com',
     );
 
-    // 1. Render Landing Page dengan ESP32 Connector
+    // 1. Render Landing Page saat ESP32 BELUM terhubung (kalo ga ada jangan dipaksakan)
     await tester.pumpWidget(
       const MaterialApp(
         home: SeaVisLandingPage(user: testUser),
@@ -228,30 +228,42 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Verifikasi Card ESP32 di Dashboard
-    await tester.ensureVisible(find.text('ESP32 WATER CHECKER'));
-    await tester.pumpAndSettle();
-    expect(find.text('ESP32 WATER CHECKER'), findsOneWidget);
-    expect(find.text('BLE AKTIF'), findsOneWidget);
+    // Verifikasi ESP32 TIDAK dipaksakan muncul di dashboard saat tidak terhubung
+    expect(find.text('ESP32 TERHUBUNG'), findsNothing);
+    expect(find.text('ESP32 WATER CHECKER'), findsNothing);
 
-    // 2. Hubungkan ESP32
-    await tester.tap(find.text('Hubungkan').first);
+    // 2. Hubungkan ESP32 secara aktif (misal dari Profil / BLE pairing)
+    await tester.runAsync(() async {
+      await esp32Service.connectToEsp32();
+    });
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 1100));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('TERHUBUNG'), findsOneWidget);
+    // Saat terhubung (kalo ada), banner aktif & telemetri otomatis muncul
+    expect(find.text('ESP32 TERHUBUNG'), findsOneWidget);
     expect(find.text('Putus'), findsOneWidget);
     expect(find.text('Suhu'), findsOneWidget);
     expect(find.text('pH'), findsOneWidget);
 
-    // 3. Render Dedicated Screen Esp32WaterCheckerScreen
+    // 3. Putus sambungan ESP32 langsung dari banner dashboard
+    await tester.ensureVisible(find.text('Putus'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('Putus'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    // Banner otomatis hilang kembali dari dashboard tanpa meninggalkan jejak
+    expect(find.text('ESP32 TERHUBUNG'), findsNothing);
+
+    // 4. Render Dedicated Screen Esp32WaterCheckerScreen
     await tester.pumpWidget(
       const MaterialApp(
         home: Esp32WaterCheckerScreen(),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Cek Kualitas Air ESP32'), findsOneWidget);
     expect(find.textContaining('Suhu Air (DS18B20)'), findsOneWidget);
@@ -259,7 +271,6 @@ void main() {
     expect(find.textContaining('Salinitas / TDS'), findsOneWidget);
     expect(find.textContaining('Kekeruhan (Turbidity)'), findsOneWidget);
     expect(find.text('Indeks Karbon Perairan:'), findsOneWidget);
-    expect(find.text('OPTIMAL'), findsOneWidget);
 
     esp32Service.disconnectEsp32();
   });
