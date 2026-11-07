@@ -446,12 +446,10 @@ class _ProfilePageState extends State<ProfilePage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF0096C7), // Rona cerah kehijauan permukaan laut (Cyan-tinted Sea Blue)
               Color(0xFF006994), // Warna Biru Laut Utama (Sea Blue)
               Color(0xFF01386A), // Marine Blue / Rona Kedalaman Laut
-              Color(0xFF001A33), // Deep Abyssal Navy Blue
             ],
-            stops: [0.0, 0.32, 0.70, 1.0],
+            stops: [0.0, 1.0],
           ),
         ),
         child: SafeArea(

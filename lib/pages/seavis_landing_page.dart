@@ -1107,12 +1107,10 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF0096C7), // Rona cerah kehijauan permukaan laut (Cyan-tinted Sea Blue)
-              Color(0xFF006994), // Warna Biru Laut Utama (Sea Blue)
-              Color(0xFF01386A), // Marine Blue / Rona Kedalaman Laut
-              Color(0xFF001A33), // Deep Abyssal Navy Blue
+              Color(0xFF006994), // Warna Biru Laut (Sea Blue)
+              Color(0xFF01386A), // Marine Blue
             ],
-            stops: [0.0, 0.32, 0.70, 1.0],
+            stops: [0.0, 1.0],
           ),
         ),
         child: SafeArea(
@@ -1745,29 +1743,37 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
         Expanded(
           child: Container(
             height: 145,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: const Color(0xFFD8B4E2),
-                width: 2,
+                color: const Color(0xFFE2E8F0),
+                width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
-                  Icons.auto_awesome,
-                  color: Color(0xFF9C27B0),
-                  size: 28,
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F9FF),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFBAE6FD)),
+                  ),
+                  child: const Icon(
+                    Icons.biotech_outlined,
+                    color: Color(0xFF006994),
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
@@ -1775,7 +1781,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                   style: TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF94A3B8),
+                    color: Color(0xFF64748B),
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -1783,10 +1789,12 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                 Text(
                   _lastAiResultText,
                   textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF8E24AA),
+                    color: Color(0xFF0F172A),
                   ),
                 ),
               ],
@@ -1819,20 +1827,20 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF26E6D9).withValues(alpha: 0.2),
+                color: Colors.white.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF26E6D9), width: 1),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.28), width: 1),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.photo_library_outlined, size: 12, color: Color(0xFF26E6D9)),
+                  Icon(Icons.collections_outlined, size: 12, color: Colors.white),
                   SizedBox(width: 4),
                   Text(
                     '4 Dokumentasi Nyata',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF26E6D9),
+                      color: Colors.white,
                     ),
                   ),
                 ],
@@ -2699,32 +2707,28 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                 value: isConnected && data.ph != null ? data.ph!.toStringAsFixed(2) : '8.10',
                 unit: 'pH',
                 status: 'Optimal Basa Pesisir',
-                icon: Icons.science_rounded,
-                iconColor: const Color(0xFF0284C7),
+                icon: Icons.science_outlined,
               ),
               _buildSensorMetricTile(
                 title: 'Suhu Air Laut',
                 value: isConnected && data.waterTempC != null ? data.waterTempC!.toStringAsFixed(1) : '28.5',
                 unit: '°C',
                 status: 'Tropis Hangat',
-                icon: Icons.thermostat_rounded,
-                iconColor: const Color(0xFFEA580C),
+                icon: Icons.thermostat_outlined,
               ),
               _buildSensorMetricTile(
                 title: 'TDS / Salinitas',
                 value: isConnected && data.tdsPpm != null ? data.tdsPpm!.toStringAsFixed(0) : '345',
                 unit: 'ppm',
                 status: 'Kadar Garam Stabil',
-                icon: Icons.water_drop_rounded,
-                iconColor: const Color(0xFF0D9488),
+                icon: Icons.water_drop_outlined,
               ),
               _buildSensorMetricTile(
                 title: 'Kekeruhan',
                 value: isConnected && data.turbidityNtu != null ? data.turbidityNtu!.toStringAsFixed(1) : '3.4',
                 unit: 'NTU',
                 status: 'Sangat Jernih',
-                icon: Icons.opacity_rounded,
-                iconColor: const Color(0xFF8B5CF6),
+                icon: Icons.opacity_outlined,
               ),
             ],
           ),
@@ -2763,16 +2767,16 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
     required String unit,
     required String status,
     required IconData icon,
-    required Color iconColor,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -2789,7 +2793,14 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                 title,
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
               ),
-              Icon(icon, color: iconColor, size: 18),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F9FF),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Icon(icon, color: const Color(0xFF006994), size: 16),
+              ),
             ],
           ),
           Row(
@@ -2807,11 +2818,18 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
               ),
             ],
           ),
-          Text(
-            status,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: iconColor),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFECFDF5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              status,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600, color: Color(0xFF047857)),
+            ),
           ),
         ],
       ),
@@ -2826,7 +2844,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // TAB 4: AI CHAT (ASISTEN CERDAS SEAVIS)
+  // TAB 4: AI CHAT (PUSAT SAINS & PANDUAN LAPANGAN SEAVIS)
   // ---------------------------------------------------------------------------
   Widget _buildAiChatContent() {
     return SingleChildScrollView(
@@ -2839,21 +2857,22 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: Colors.white.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
                 ),
-                child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+                child: const Icon(Icons.forum_outlined, color: Colors.white, size: 22),
               ),
               const SizedBox(width: 10),
               const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Asisten AI SEAVIS',
+                    'Pusat Sains & Konsultasi SEAVIS',
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   Text(
-                    'Konsultasi identifikasi lamun & perhitungan Blue Carbon',
+                    'Panduan identifikasi lamun & kalkulasi Blue Carbon',
                     style: TextStyle(fontSize: 11, color: Color(0xFFE2E8F0)),
                   ),
                 ],
@@ -2867,11 +2886,12 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -2880,22 +2900,22 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.smart_toy_rounded, color: Color(0xFF8E24AA), size: 24),
+                    Icon(Icons.biotech_outlined, color: Color(0xFF006994), size: 24),
                     SizedBox(width: 8),
                     Text(
-                      'Rekomendasi Pemantauan AI',
+                      'Rekomendasi Pemantauan Ilmiah',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Halo Pak Nelayan! AI kami siap membantu verifikasi jenis spesies padang lamun, panduan pemotretan 4 sudut, dan kalkulasi estimasi serapan karbon di pesisir Anda.',
+                  'Sistem verifikasi AI MobileNetV2 SEAVIS dirancang untuk memastikan akurasi klasifikasi spesies lamun minimal 80.0% dan kalkulasi estimasi biomassa serapan karbon biru pesisir secara akurat.',
                   style: TextStyle(fontSize: 12.5, height: 1.5, color: Color(0xFF334155)),
                 ),
                 const SizedBox(height: 14),
 
-                const Text('Topik Tanya Jawab Populer:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                const Text('Topik Konsultasi Ilmiah Lapangan:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -3240,7 +3260,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                 onTap: _openSheetsHistory,
               ),
               _buildNavItem(
-                icon: Icons.auto_awesome_rounded,
+                icon: Icons.biotech_outlined,
                 label: 'AI Chat',
                 isActive: _selectedBottomIndex == 4,
                 onTap: _openAiChat,

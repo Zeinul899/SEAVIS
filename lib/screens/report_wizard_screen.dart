@@ -698,7 +698,7 @@ class _ReportWizardScreenState extends State<ReportWizardScreen> {
                 const Center(
                   child: Column(
                     children: [
-                      Icon(Icons.smart_toy_outlined, size: 48, color: Color(0xFF0284C7)),
+                      Icon(Icons.biotech_outlined, size: 48, color: Color(0xFF006994)),
                       SizedBox(height: 10),
                       Text('Siap untuk verifikasi foto dengan AI Edge Model',
                           style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
@@ -823,7 +823,7 @@ class _ReportWizardScreenState extends State<ReportWizardScreen> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                     )
-                  : const Icon(Icons.auto_awesome),
+                  : const Icon(Icons.biotech_outlined),
               label: Text(_isVerifyingAi ? 'Memeriksa dengan MobileNetV2...' : 'Jalankan Verifikasi AI'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0F4C81),
