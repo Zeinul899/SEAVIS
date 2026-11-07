@@ -101,10 +101,22 @@ class CloudinarySheetsService {
     return "https://res.cloudinary.com/$cloudinaryCloudName/image/upload/v1/seagrass_${DateTime.now().millisecondsSinceEpoch}.jpg";
   }
 
+  /// Validasi keamanan endpoint: Wajib menggunakan HTTPS terenkripsi
+  /// Mencegah serangan Man-in-the-Middle (MitM) dan cleartext HTTP downgrade
+  static bool isSecureEndpoint(String url) {
+    final trimmed = url.trim().toLowerCase();
+    return trimmed.startsWith('https://');
+  }
+
   /// 2. Mengirim seluruh payload "Data Jadi" ke Google Apps Script (Google Sheets)
   static Future<bool> sendReportToGoogleSheets(SeagrassReportModel report) async {
     // Simpan ke cache lokal terlebih dahulu
     _localReportsCache.insert(0, report);
+
+    // Enforce HTTPS
+    if (!isSecureEndpoint(googleAppsScriptUrl)) {
+      return false;
+    }
 
     try {
       final payloadJson = report.toJson();

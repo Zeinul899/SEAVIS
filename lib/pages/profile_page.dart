@@ -341,7 +341,17 @@ class _ProfilePageState extends State<ProfilePage> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          final amount = int.tryParse(amountController.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                          final text = amountController.text.trim();
+                          if (!RegExp(r'^\d+$').hasMatch(text)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Nominal penarikan harus berupa angka bulat positif.'),
+                                backgroundColor: Color(0xFFDC2626),
+                              ),
+                            );
+                            return;
+                          }
+                          final amount = int.tryParse(text) ?? 0;
                           if (amount <= 0 || amount > _balance || amount < 25000) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(

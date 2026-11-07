@@ -86,4 +86,29 @@ class Esp32SupportService {
 
     _dataStreamController.add(currentData);
   }
+
+  /// Validasi keamanan pembacaan sensor (Anti-Fuzzing / Anti-Sensor Spoofing)
+  static bool isValidSensorReading({
+    double? waterTempC,
+    double? ph,
+    double? tdsPpm,
+    double? turbidityNtu,
+  }) {
+    if (ph != null && (ph < 0.0 || ph > 14.0 || ph.isNaN || ph.isInfinite)) {
+      return false;
+    }
+    if (waterTempC != null &&
+        (waterTempC < -10.0 || waterTempC > 60.0 || waterTempC.isNaN || waterTempC.isInfinite)) {
+      return false;
+    }
+    if (tdsPpm != null &&
+        (tdsPpm < 0.0 || tdsPpm > 100000.0 || tdsPpm.isNaN || tdsPpm.isInfinite)) {
+      return false;
+    }
+    if (turbidityNtu != null &&
+        (turbidityNtu < 0.0 || turbidityNtu > 1000.0 || turbidityNtu.isNaN || turbidityNtu.isInfinite)) {
+      return false;
+    }
+    return true;
+  }
 }

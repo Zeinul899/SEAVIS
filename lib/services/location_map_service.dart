@@ -430,6 +430,16 @@ class LocationMapService {
     return (site: nearest, distanceKm: minDistance);
   }
 
+  /// Validasi batas wilayah maritim teritorial Indonesia (Anti-GPS Spoofing)
+  /// Batas Lintang: 6.5° LU (Pulau Weh) sampai -11.5° LS (Pulau Rote)
+  /// Batas Bujur: 94.5° BT (Sabang) sampai 141.5° BT (Merauke)
+  static bool isWithinIndonesianTerritory(double latitude, double longitude) {
+    return latitude >= -11.5 &&
+        latitude <= 6.5 &&
+        longitude >= 94.5 &&
+        longitude <= 141.5;
+  }
+
   /// Getter untuk kompatibilitas riwayat lama
   static List<Map<String, dynamic>> get knownSites => verifiedIndonesianSites
       .map((s) => {

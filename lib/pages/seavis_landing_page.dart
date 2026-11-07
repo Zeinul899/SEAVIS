@@ -460,7 +460,16 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
 
   void _handleWithdrawal(BuildContext sheetContext) async {
     final amountText = _withdrawAmountController.text.trim();
-    final amount = int.tryParse(amountText.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    if (!RegExp(r'^\d+$').hasMatch(amountText)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nominal penarikan harus berupa angka bulat positif.'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+    final amount = int.tryParse(amountText) ?? 0;
 
     if (amount <= 0 || amount > _currentBalance || amount < 25000) {
       ScaffoldMessenger.of(context).showSnackBar(

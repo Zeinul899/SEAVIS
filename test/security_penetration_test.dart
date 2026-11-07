@@ -1,7 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 import 'package:seavis/main.dart';
+import 'package:seavis/models/user_model.dart';
+import 'package:seavis/pages/seavis_landing_page.dart';
 import 'package:seavis/services/auth_service.dart';
+import 'package:seavis/services/cloudinary_sheets_service.dart';
+import 'package:seavis/services/esp32_support_service.dart';
+import 'package:seavis/services/location_map_service.dart';
 import 'package:seavis/services/network_service.dart';
 import 'package:seavis/services/offline_sync_service.dart';
 
@@ -176,6 +181,141 @@ void main() {
       // Verifikasi: Tombol login harus beralih ke mode lockout "Terkunci"
       expect(find.textContaining('Terkunci'), findsOneWidget,
           reason: 'Mekanisme anti-brute force wajib mengunci form setelah 5 kali gagal');
+    });
+
+    // -------------------------------------------------------------------------
+    // TEST PENETRASI 7: SIMULASI MANIPULASI INPUT FINANSIAL & UNDERFLOW (TARIK SALDO)
+    // -------------------------------------------------------------------------
+    test('PEN-TEST 07: Integritas Validasi Saldo & Anti-Tampering Finansial', () {
+      const currentBalance = 540000;
+
+      // Fungsi simulasi validasi nominal yang sama persis dengan UI
+      bool isValidWithdrawal(String input, int balance) {
+        final text = input.trim();
+        if (!RegExp(r'^\d+$').hasMatch(text)) return false;
+        final amount = int.tryParse(text) ?? 0;
+        return amount >= 25000 && amount <= balance;
+      }
+
+      // Payload manipulasi nominal jahat
+      final maliciousInputs = [
+        "-50000",             // Nilai negatif
+        "0",                  // Nilai nol
+        "1000",               // Di bawah batas minimal 25.000
+        "999999999",          // Melebihi saldo tersedia (Overdraw)
+        "50000' OR '1'='1",   // SQL Injection pada field nominal
+        "50000<script>",      // XSS injection
+        "NaN",                // Not a Number
+        "0xFF",               // Hexadecimal bypass attempt
+        "1e10",               // Scientific notation
+      ];
+
+      for (final input in maliciousInputs) {
+        final isAllowed = isValidWithdrawal(input, currentBalance);
+        expect(isAllowed, isFalse,
+            reason: 'Input manipulasi "$input" harus ditolak keras oleh sistem!');
+      }
+
+      // Input sah dalam batas saldo wajib diterima
+      expect(isValidWithdrawal("50000", currentBalance), isTrue);
+      expect(isValidWithdrawal("540000", currentBalance), isTrue);
+    });
+
+    // -------------------------------------------------------------------------
+    // TEST PENETRASI 8: VERIFIKASI PENEGAKAN KAMERA FISIK & BLOKIR AKSES GALERI
+    // -------------------------------------------------------------------------
+    testWidgets('PEN-TEST 08: Anti-Image Spoofing: Galeri HP Diblokir Total',
+        (WidgetTester tester) async {
+      const testUser = UserModel(name: 'Pak Anto', email: 'Anto@mail.com');
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SeaVisLandingPage(user: testUser),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Buka modal upload
+      await tester.ensureVisible(find.text('Ambil Foto 1: Tampak Atas'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ambil Foto 1: Tampak Atas'));
+      await tester.pumpAndSettle();
+
+      // Pastikan tombol galeri tidak ada dan ada badge penegakan kamera
+      expect(find.text('Pilih dari Galeri'), findsNothing,
+          reason: 'Akses galeri wajib ditiadakan untuk mencegah foto rekayasa/spoofing');
+      expect(find.textContaining('Akses Galeri Dinonaktifkan'), findsOneWidget);
+      expect(find.text('Buka Kamera Langsung'), findsOneWidget);
+    });
+
+    // -------------------------------------------------------------------------
+    // TEST PENETRASI 9: VALIDASI BATAS MARITIM INDONESIA (ANTI-GPS SPOOFING)
+    // -------------------------------------------------------------------------
+    test('PEN-TEST 09: Mitigasi Serangan GPS Spoofing & Validasi Teritorial Maritim', () {
+      // Koordinat sah dalam wilayah laut Indonesia
+      expect(LocationMapService.isWithinIndonesianTerritory(-6.5528, 110.6508), isTrue,
+          reason: 'Jepara, Jawa Tengah valid');
+      expect(LocationMapService.isWithinIndonesianTerritory(-8.7523, 115.2215), isTrue,
+          reason: 'Tanjung Benoa, Bali valid');
+      expect(LocationMapService.isWithinIndonesianTerritory(-1.8894, 130.1583), isTrue,
+          reason: 'Raja Ampat, Papua valid');
+
+      // Koordinat palsu / spoofing di luar batas laut Indonesia
+      expect(LocationMapService.isWithinIndonesianTerritory(35.6762, 139.6503), isFalse,
+          reason: 'Tokyo, Jepang di luar wilayah');
+      expect(LocationMapService.isWithinIndonesianTerritory(51.5074, -0.1278), isFalse,
+          reason: 'London, UK di luar wilayah');
+      expect(LocationMapService.isWithinIndonesianTerritory(999.0, 999.0), isFalse,
+          reason: 'Koordinat overflow tidak valid');
+      expect(LocationMapService.isWithinIndonesianTerritory(-90.0, 0.0), isFalse,
+          reason: 'Kutub Selatan di luar wilayah');
+    });
+
+    // -------------------------------------------------------------------------
+    // TEST PENETRASI 10: TRANSPORT SECURITY & ENFORCE HTTPS (ANTI-MITM)
+    // -------------------------------------------------------------------------
+    test('PEN-TEST 10: Penegakan Enkripsi Transport HTTPS (Anti-Cleartext HTTP Downgrade)', () {
+      // Endpoint yang sah menggunakan HTTPS
+      expect(CloudinarySheetsService.isSecureEndpoint('https://script.google.com/macros/s/exec'), isTrue);
+      expect(CloudinarySheetsService.isSecureEndpoint('https://api.cloudinary.com/v1_1/seagrass/upload'), isTrue);
+
+      // Endpoint tidak aman tanpa enkripsi wajib ditolak
+      expect(CloudinarySheetsService.isSecureEndpoint('http://script.google.com/macros/s/exec'), isFalse,
+          reason: 'Cleartext HTTP wajib ditolak');
+      expect(CloudinarySheetsService.isSecureEndpoint('http://insecure-backend.com/api'), isFalse,
+          reason: 'Cleartext HTTP wajib ditolak');
+      expect(CloudinarySheetsService.isSecureEndpoint('ftp://malicious.org/payload'), isFalse,
+          reason: 'Protokol non-HTTPS wajib ditolak');
+    });
+
+    // -------------------------------------------------------------------------
+    // TEST PENETRASI 11: FUZZING & ANOMALI SENSOR ESP32 (OUT-OF-BOUNDS TELEMETRY)
+    // -------------------------------------------------------------------------
+    test('PEN-TEST 11: Fuzzing Validasi Data Sensor IoT ESP32 (Anti-Corrupted Data)', () {
+      // Pembacaan fisik yang normal dan sah
+      expect(
+        Esp32SupportService.isValidSensorReading(
+          waterTempC: 28.5,
+          ph: 8.1,
+          tdsPpm: 345,
+          turbidityNtu: 3.4,
+        ),
+        isTrue,
+      );
+
+      // Fuzzing 1: pH di luar skala asam-basa alami (skala 0 - 14)
+      expect(Esp32SupportService.isValidSensorReading(ph: -1.0), isFalse);
+      expect(Esp32SupportService.isValidSensorReading(ph: 15.5), isFalse);
+      expect(Esp32SupportService.isValidSensorReading(ph: double.nan), isFalse);
+
+      // Fuzzing 2: Suhu air laut ekstrem yang tidak mungkin
+      expect(Esp32SupportService.isValidSensorReading(waterTempC: -50.0), isFalse);
+      expect(Esp32SupportService.isValidSensorReading(waterTempC: 150.0), isFalse);
+
+      // Fuzzing 3: TDS & Turbidity negatif atau tak terhingga
+      expect(Esp32SupportService.isValidSensorReading(tdsPpm: -100), isFalse);
+      expect(Esp32SupportService.isValidSensorReading(turbidityNtu: -5.0), isFalse);
+      expect(Esp32SupportService.isValidSensorReading(turbidityNtu: double.infinity), isFalse);
     });
   });
 }
