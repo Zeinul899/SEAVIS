@@ -78,10 +78,10 @@ class _Esp32WaterCheckerScreenState extends State<Esp32WaterCheckerScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF7DD895), // Light mint ocean
-              Color(0xFF38976C), // Mid turquoise sea
-              Color(0xFF0F4D3C), // Deep forest ocean
-              Color(0xFF0A3328), // Dark coastal green
+              Color(0xFF0096C7), // Rona cerah kehijauan permukaan laut (Cyan-tinted Sea Blue)
+              Color(0xFF006994), // Warna Biru Laut Utama (Sea Blue)
+              Color(0xFF01386A), // Marine Blue / Rona Kedalaman Laut
+              Color(0xFF001A33), // Deep Abyssal Navy Blue
             ],
             stops: [0.0, 0.32, 0.70, 1.0],
           ),
@@ -219,7 +219,7 @@ class _Esp32WaterCheckerScreenState extends State<Esp32WaterCheckerScreen> {
                             ElevatedButton(
                               onPressed: _isConnecting ? null : _toggleConnection,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: isConnected ? const Color(0xFFDC2626) : const Color(0xFF0F5A47),
+                                backgroundColor: isConnected ? const Color(0xFFDC2626) : const Color(0xFF006994),
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

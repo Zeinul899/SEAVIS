@@ -155,7 +155,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F5A47),
+                      backgroundColor: const Color(0xFF006994),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -377,7 +377,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F5A47),
+                          backgroundColor: const Color(0xFF006994),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -436,10 +436,10 @@ class _ProfilePageState extends State<ProfilePage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF7DD895), // Vibrant soft mint green
-              Color(0xFF38976C), // Mid green
-              Color(0xFF0F4D3C), // Deep emerald green
-              Color(0xFF0A3328), // Dark ocean green
+              Color(0xFF0096C7), // Rona cerah kehijauan permukaan laut (Cyan-tinted Sea Blue)
+              Color(0xFF006994), // Warna Biru Laut Utama (Sea Blue)
+              Color(0xFF01386A), // Marine Blue / Rona Kedalaman Laut
+              Color(0xFF001A33), // Deep Abyssal Navy Blue
             ],
             stops: [0.0, 0.32, 0.70, 1.0],
           ),
@@ -708,7 +708,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 icon: const Icon(Icons.payments_outlined, size: 16),
                 label: const Text('Tarik Saldo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F5A47),
+                  backgroundColor: const Color(0xFF006994),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -816,7 +816,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
-                    color: isConnected ? const Color(0xFFDC2626) : const Color(0xFF0F5A47),
+                    color: isConnected ? const Color(0xFFDC2626) : const Color(0xFF006994),
                   ),
                 ),
               ),
@@ -875,7 +875,7 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           const Row(
             children: [
-              Icon(Icons.handshake_outlined, size: 20, color: Color(0xFF0F5A47)),
+              Icon(Icons.handshake_outlined, size: 20, color: Color(0xFF006994)),
               SizedBox(width: 8),
               Text(
                 'Informasi Kemitraan Konservasi',
@@ -936,7 +936,7 @@ class _ProfilePageState extends State<ProfilePage> {
         children: [
           const Row(
             children: [
-              Icon(Icons.credit_card_outlined, size: 20, color: Color(0xFF0F5A47)),
+              Icon(Icons.credit_card_outlined, size: 20, color: Color(0xFF006994)),
               SizedBox(width: 8),
               Text(
                 'Rekening & E-Wallet Pencairan',

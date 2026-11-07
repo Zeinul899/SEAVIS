@@ -423,7 +423,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                             ? null
                             : () => _handleWithdrawal(ctx),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F5A47),
+                          backgroundColor: const Color(0xFF006994),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -1121,10 +1121,10 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF7DD895), // Vibrant soft mint green
-              Color(0xFF38976C), // Mid green
-              Color(0xFF0F4D3C), // Deep emerald green
-              Color(0xFF0A3328), // Dark ocean green
+              Color(0xFF0096C7), // Rona cerah kehijauan permukaan laut (Cyan-tinted Sea Blue)
+              Color(0xFF006994), // Warna Biru Laut Utama (Sea Blue)
+              Color(0xFF01386A), // Marine Blue / Rona Kedalaman Laut
+              Color(0xFF001A33), // Deep Abyssal Navy Blue
             ],
             stops: [0.0, 0.32, 0.70, 1.0],
           ),
@@ -1702,7 +1702,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0F5A47),
+                      color: const Color(0xFF006994),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
@@ -1718,7 +1718,7 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F5A47),
+                      color: Color(0xFF006994),
                     ),
                   ),
                 ],
