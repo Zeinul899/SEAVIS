@@ -500,9 +500,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildBalanceCard(),
                       const SizedBox(height: 14),
 
-                      // 3. KARTU STATUS PENGHUBUNG ESP32 (IOT KUALITAS AIR)
-                      _buildEsp32StatusCard(),
-                      const SizedBox(height: 14),
+                      // 3. KARTU STATUS PENGHUBUNG ESP32 (Hanya muncul jika aktif terhubung)
+                      if (_esp32Service.isConnected) ...[
+                        _buildEsp32StatusCard(),
+                        const SizedBox(height: 14),
+                      ],
 
                       // 4. KARTU INFORMASI KEMITRAAN & LAMA KERJA SAMA
                       _buildPartnershipInfoCard(),
@@ -517,7 +519,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         onPressed: _handleLogout,
                         icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 18),
                         label: const Text(
-                          'Keluar dari Akun SeaVis',
+                          'Keluar dari Akun SEAVIS',
                           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                         style: OutlinedButton.styleFrom(

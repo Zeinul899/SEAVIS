@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import 'auth_service.dart';
 
@@ -25,6 +26,7 @@ class SyncResult {
 /// dan sinkronisasi otomatis ke server (MySQL / Firebase / Cloud) saat online
 class OfflineSyncService {
   static const String _fileName = 'seavis_offline_accounts.json';
+  static const String _prefKeyAccounts = 'seavis_local_accounts_v2';
   static const String _hashPrefix = '\$seavis-hmac\$';
 
   /// Mendapatkan file penyimpanan lokal
@@ -38,17 +40,49 @@ class OfflineSyncService {
     return file;
   }
 
-  /// Membaca semua akun yang tersimpan di HP
+  /// Membaca semua akun yang tersimpan di HP (Multi-tier: SharedPreferences + File Backup)
   static Future<List<UserModel>> getAllLocalAccounts() async {
+    // 1. Coba baca dari SharedPreferences (Paling persisten di Android & iOS)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final prefData = prefs.getString(_prefKeyAccounts);
+      if (prefData != null && prefData.isNotEmpty) {
+        final List<dynamic> jsonList = jsonDecode(prefData) as List<dynamic>;
+        final accounts = jsonList
+            .map((item) => UserModel.fromMap(item as Map<String, dynamic>))
+            .toList();
+        if (accounts.isNotEmpty) {
+          // Selaraskan ke backup file
+          try {
+            final file = await _getLocalFile();
+            await file.writeAsString(prefData, flush: true);
+          } catch (_) {}
+          return accounts;
+        }
+      }
+    } catch (_) {
+      // Fallback ke file I/O jika SharedPreferences belum diinisialisasi
+    }
+
+    // 2. Fallback baca dari file I/O
     try {
       final file = await _getLocalFile();
       final content = await file.readAsString();
       if (content.isEmpty) return [];
 
       final List<dynamic> jsonList = jsonDecode(content) as List<dynamic>;
-      return jsonList
+      final accounts = jsonList
           .map((item) => UserModel.fromMap(item as Map<String, dynamic>))
           .toList();
+
+      // Sinkronkan balik ke SharedPreferences jika berhasil terbaca
+      if (accounts.isNotEmpty) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_prefKeyAccounts, content);
+        } catch (_) {}
+      }
+      return accounts;
     } catch (_) {
       return [];
     }
@@ -88,11 +122,19 @@ class OfflineSyncService {
     accounts.removeWhere((acc) => acc.email.toLowerCase() == cleanEmail.toLowerCase());
     accounts.add(newAccount);
 
-    final file = await _getLocalFile();
-    await file.writeAsString(
-      jsonEncode(accounts.map((a) => a.toMap()).toList()),
-      flush: true,
-    );
+    final rawJson = jsonEncode(accounts.map((a) => a.toMap()).toList());
+
+    // Simpan ke SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefKeyAccounts, rawJson);
+    } catch (_) {}
+
+    // Simpan ke File I/O
+    try {
+      final file = await _getLocalFile();
+      await file.writeAsString(rawJson, flush: true);
+    } catch (_) {}
 
     return newAccount;
   }
@@ -153,18 +195,17 @@ class OfflineSyncService {
     for (final account in pendingAccounts) {
       try {
         // Simulasi pengiriman data akun ke database server (MySQL / Firebase)
-        await Future.delayed(const Duration(milliseconds: 600));
+        await Future.delayed(const Duration(milliseconds: 300));
 
         successCount++;
         logMessages.add('Berhasil menyinkronkan ${account.email} ke database.');
 
         // Update status akun di HP:
-        // Hapus password hash dari memori perangkat setelah akun sukses di server
+        // PENTING: Password hash TETAP DIPERTAHANKAN agar pengguna bisa login terus menerus!
         final index = allAccounts.indexWhere((a) => a.id == account.id);
         if (index != -1) {
           allAccounts[index] = allAccounts[index].copyWith(
             syncStatus: SyncStatus.synced,
-            localEncryptedPassword: null,
             lastSyncAttempt: DateTime.now(),
           );
         }
@@ -174,12 +215,19 @@ class OfflineSyncService {
       }
     }
 
-    // Tulis ulang file lokal dengan status terupdate
-    final file = await _getLocalFile();
-    await file.writeAsString(
-      jsonEncode(allAccounts.map((a) => a.toMap()).toList()),
-      flush: true,
-    );
+    final rawJson = jsonEncode(allAccounts.map((a) => a.toMap()).toList());
+
+    // Tulis ke SharedPreferences
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefKeyAccounts, rawJson);
+    } catch (_) {}
+
+    // Tulis ke file lokal
+    try {
+      final file = await _getLocalFile();
+      await file.writeAsString(rawJson, flush: true);
+    } catch (_) {}
 
     return SyncResult(
       totalPending: pendingAccounts.length,

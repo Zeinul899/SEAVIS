@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:seavis/main.dart';
 import 'package:seavis/models/user_model.dart';
 import 'package:seavis/pages/profile_page.dart';
@@ -13,6 +14,7 @@ import 'package:seavis/services/network_service.dart';
 
 void main() {
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     NetworkService.setMockStatus(true);
     LocationMapService.mockPosition = Position(
       latitude: -6.5528,
@@ -108,11 +110,13 @@ void main() {
 
     // 6. Verifikasi Conservation Gallery & Bottom Navigation Bar
     expect(find.text('CONSERVATION GALLERY'), findsOneWidget);
-    expect(find.text('SEAGRASS GUARD v1.0'), findsOneWidget);
+    expect(find.text('SEAVIS v1.0'), findsOneWidget);
     expect(find.text('Form'), findsOneWidget);
     expect(find.text('Saldo'), findsOneWidget);
+    expect(find.text('Perangkat IoT'), findsOneWidget);
     expect(find.text('History'), findsOneWidget);
     expect(find.text('AI Chat'), findsOneWidget);
+    expect(find.text('Profil'), findsOneWidget);
   });
 
   testWidgets('SEAVIS Profile Page shows complete partnership info & duration',

@@ -16,7 +16,7 @@ class SeagrassGuardApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Seagrass Guard (SEAVIS)',
+      title: 'SEAVIS',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,

@@ -11,6 +11,9 @@ class Esp32SupportService {
 
   bool _isConnected = false;
   bool _isScanning = false;
+  bool _isWifiConnected = false;
+  String _wifiIp = "192.168.4.1";
+  String _wifiSsid = "ESP32_SEAVIS_NODE_01";
   Timer? _pollingTimer;
 
   // Nilai pembacaan sensor aktif
@@ -24,19 +27,22 @@ class Esp32SupportService {
       StreamController<Esp32SupportData>.broadcast();
 
   Stream<Esp32SupportData> get dataStream => _dataStreamController.stream;
-  bool get isConnected => _isConnected;
+  bool get isConnected => _isConnected || _isWifiConnected;
   bool get isScanning => _isScanning;
+  bool get isWifiConnected => _isWifiConnected;
+  String get wifiIp => _wifiIp;
+  String get wifiSsid => _wifiSsid;
 
   Esp32SupportData get currentData => Esp32SupportData(
-        isAttached: _isConnected,
-        waterTempC: _isConnected ? _waterTemp : null,
-        ph: _isConnected ? _ph : null,
-        tdsPpm: _isConnected ? _tds : null,
-        turbidityNtu: _isConnected ? _turbidity : null,
-        waterCarbonStatus: _isConnected ? _waterCarbonStatus : "NORMAL",
+        isAttached: isConnected,
+        waterTempC: isConnected ? _waterTemp : null,
+        ph: isConnected ? _ph : null,
+        tdsPpm: isConnected ? _tds : null,
+        turbidityNtu: isConnected ? _turbidity : null,
+        waterCarbonStatus: isConnected ? _waterCarbonStatus : "NORMAL",
       );
 
-  /// Pindai & hubungkan ke modul ESP32 pendukung
+  /// Pindai & hubungkan ke modul ESP32 pendukung via BLE
   Future<bool> connectToEsp32() async {
     _isScanning = true;
     await Future.delayed(const Duration(milliseconds: 1000));
@@ -54,11 +60,36 @@ class Esp32SupportService {
     return true;
   }
 
+  /// Hubungkan ke modul ESP32 melalui WiFi Local / Access Point IP
+  Future<bool> connectViaWifi({String? ipAddress, String? ssid}) async {
+    _isScanning = true;
+    if (ipAddress != null && ipAddress.trim().isNotEmpty) {
+      _wifiIp = ipAddress.trim();
+    }
+    if (ssid != null && ssid.trim().isNotEmpty) {
+      _wifiSsid = ssid.trim();
+    }
+
+    await Future.delayed(const Duration(milliseconds: 900));
+    _isScanning = false;
+    _isWifiConnected = true;
+    _isConnected = true;
+
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      _simulateSensorReading();
+    });
+
+    _simulateSensorReading();
+    return true;
+  }
+
   /// Putuskan sambungan dengan ESP32
   void disconnectEsp32() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
     _isConnected = false;
+    _isWifiConnected = false;
     _dataStreamController.add(const Esp32SupportData(isAttached: false));
   }
 

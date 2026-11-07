@@ -12,6 +12,25 @@ import '../screens/realtime_carbon_map_screen.dart';
 import '../screens/sheets_history_screen.dart';
 import '../screens/esp32_water_checker_screen.dart';
 import 'profile_page.dart';
+import 'login_page.dart';
+
+class ConservationGalleryItem {
+  final String imagePath;
+  final String title;
+  final String category;
+  final String species;
+  final String carbonInfo;
+  final String description;
+
+  const ConservationGalleryItem({
+    required this.imagePath,
+    required this.title,
+    required this.category,
+    required this.species,
+    required this.carbonInfo,
+    required this.description,
+  });
+}
 
 class SeaVisLandingPage extends StatefulWidget {
   final UserModel? user;
@@ -39,6 +58,51 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   static const int _rewardPerFoto = 25000;
   static const int _maxDailyPhotos = 5;
   int _currentBalance = 540000;
+
+  // Navigasi Tab Bottom Bar (Header Bawah)
+  int _selectedBottomIndex = 0; // 0 = Form, 1 = Saldo, 2 = Perangkat IoT, 3 = History, 4 = AI Chat, 5 = Profil
+  final TextEditingController _iotWifiIpController = TextEditingController(text: '192.168.4.1');
+  final TextEditingController _iotWifiSsidController = TextEditingController(text: 'ESP32_SEAVIS_NODE_01');
+
+  // Koleksi Dokumentasi Nyata Konservasi Padang Lamun
+  final List<ConservationGalleryItem> _conservationItems = const [
+    ConservationGalleryItem(
+      imagePath: 'assets/images/conservation_1.jpg',
+      title: 'Kuadran Transek Padang Lamun',
+      category: 'Citizen Science',
+      species: 'Enhalus acoroides & Thalassia',
+      carbonInfo: 'Stok Karbon: 148.5 T/Ha',
+      description:
+          'Nelayan dan periset lapangan melakukan pemantauan persentase tutupan lamun menggunakan bingkai kuadran transek 50x50 cm di perairan surut pantai.',
+    ),
+    ConservationGalleryItem(
+      imagePath: 'assets/images/conservation_2.jpg',
+      title: 'Transplantasi Bibit Lamun',
+      category: 'Restorasi Pesisir',
+      species: 'Enhalus acoroides (Bibit Polybag)',
+      carbonInfo: 'Potensi Serapan: +25% Karbon Biru',
+      description:
+          'Aksi penanaman dan pengembalian bibit lamun oleh kelompok nelayan pemuda untuk merehabilitasi padang lamun yang terdegradasi.',
+    ),
+    ConservationGalleryItem(
+      imagePath: 'assets/images/conservation_3.jpg',
+      title: 'Edukasi & Taksonomi Spesies',
+      category: 'Edukasi Komunitas',
+      species: 'Thalassia hemprichii & Halodule',
+      carbonInfo: 'Zona Perlindungan Karbon',
+      description:
+          'Pelatihan bersama nelayan tradisional mengenai morfologi akar rimpang dan kemampuan sekuestrasi sedimen lamun bawah laut.',
+    ),
+    ConservationGalleryItem(
+      imagePath: 'assets/images/conservation_4.png',
+      title: 'Monitoring Ekosistem Karbon Biru',
+      category: 'Konektivitas Mangrove-Lamun',
+      species: 'Syringodium isoetifolium & Mangrove',
+      carbonInfo: 'Stok Terpadu: 210 T/Ha',
+      description:
+          'Survei perairan intertidal untuk memverifikasi kesehatan padang lamun di sekitar perakaran bakau penyerap emisi karbon.',
+    ),
+  ];
 
   // Daftar foto yang telah disetujui hari ini
   final List<FishermanPhoto> _todayPhotos = [
@@ -112,6 +176,8 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   void dispose() {
     _photoNoteController.dispose();
     _withdrawAmountController.dispose();
+    _iotWifiIpController.dispose();
+    _iotWifiSsidController.dispose();
     _esp32Subscription?.cancel();
     super.dispose();
   }
@@ -127,37 +193,21 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
         );
   }
 
-  void _openProfilePage() async {
-    final res = await Navigator.push<int>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ProfilePage(
-          user: widget.user ?? UserModel(name: _fishermanName, email: _fishermanEmail),
-          currentBalance: _currentBalance,
-          onProfileUpdated: (newName, newPhone, newPort) {
-            setState(() {
-              _fishermanName = newName;
-            });
-          },
-          onBalanceUpdated: (newBal) {
-            setState(() {
-              _currentBalance = newBal;
-            });
-          },
-        ),
-      ),
-    );
-    if (res != null && mounted) {
-      setState(() {
-        _currentBalance = res;
-      });
-    }
+  void _openProfilePage() {
+    setState(() {
+      _selectedBottomIndex = 5;
+    });
   }
 
   // ---------------------------------------------------------------------------
   // MODAL BOTTOM SHEET: CASH OUT (Tarik Tunai Saldo Langsung dari Banner)
   // ---------------------------------------------------------------------------
   void _openCashOutModal() {
+    setState(() {
+      _selectedBottomIndex = 1;
+    });
+    return;
+    // ignore: dead_code
     _withdrawAmountController.text = '50000';
 
     showModalBottomSheet(
@@ -1037,88 +1087,15 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   // NAVIGATION & ACTIONS
   // ---------------------------------------------------------------------------
   void _openSheetsHistory() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const SheetsHistoryScreen()),
-    );
+    setState(() => _selectedBottomIndex = 3);
   }
 
   void _openAiChat() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.auto_awesome, color: Color(0xFF8E24AA), size: 26),
-                const SizedBox(width: 10),
-                const Text(
-                  'SeaVis AI Assistant',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Panduan Asisten AI SeaVis untuk Nelayan & Surveyor:',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF334155),
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '• Pastikan foto padang lamun diambil tegak lurus (90°) dengan air surut dan jernih.\n'
-              '• Model MobileNetV2 memverifikasi tutupan lamun (≥80%) & estimasi serapan karbon otomatis.\n'
-              '• Foto lolos verifikasi langsung dikirim ke Cloudinary & Google Sheets untuk pencairan insentif.',
-              style: TextStyle(fontSize: 12.5, height: 1.5, color: Color(0xFF475569)),
-            ),
-            const SizedBox(height: 18),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  _openUploadModal();
-                },
-                icon: const Icon(Icons.camera_alt),
-                label: const Text('Mulai Ambil Foto Lamun'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F5A47),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    setState(() => _selectedBottomIndex = 4);
   }
 
   // ---------------------------------------------------------------------------
-  // BUILD UTAMA (SESUAI WIREFRAME & DESAIN SEAGRASS GUARD)
+  // BUILD UTAMA (ARSITEKTUR SEAVIS DENGAN TAB NAVIGASI MANDIRI)
   // ---------------------------------------------------------------------------
   @override
   Widget build(BuildContext context) {
@@ -1143,50 +1120,73 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
           child: Column(
             children: [
               Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // 1. TOP WHITE PROFILE CARD
-                      _buildProfileCard(),
-                      const SizedBox(height: 12),
-
-                      // 2. LIVE COASTAL MAP CARD
-                      _buildLiveCoastalMapCard(),
-                      const SizedBox(height: 12),
-
-                      // 3. GPS COORDINATES CARD
-                      _buildGpsCard(),
-                      const SizedBox(height: 12),
-
-                      // 4. PANDUAN 4 SUDUT FOTO (ANGLE) CARD
-                      _buildAngleGuidelineCard(),
-                      const SizedBox(height: 14),
-
-                      // 4b. SENSOR ESP32 KUALITAS AIR (HANYA MUNCUL JIKA TERHUBUNG / ADA)
-                      if (_esp32Service.isConnected) ...[
-                        _buildEsp32ActiveBanner(),
-                        const SizedBox(height: 14),
-                      ],
-
-                      // 5. TWO SIDE-BY-SIDE PHOTO & AI SCAN CARDS
-                      _buildPhotoAndAiRow(),
-                      const SizedBox(height: 18),
-
-                      // 6. CONSERVATION GALLERY
-                      _buildConservationGallery(),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                ),
+                child: _buildCurrentTab(),
               ),
 
-              // 7. BOTTOM NAVIGATION BAR
+              // BOTTOM NAVIGATION BAR (HEADER BAWAH)
               _buildBottomNavBar(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentTab() {
+    switch (_selectedBottomIndex) {
+      case 0:
+        return _buildFormContent();
+      case 1:
+        return _buildSaldoContent();
+      case 2:
+        return _buildIoTContent();
+      case 3:
+        return _buildHistoryContent();
+      case 4:
+        return _buildAiChatContent();
+      case 5:
+        return _buildProfileContent();
+      default:
+        return _buildFormContent();
+    }
+  }
+
+  Widget _buildFormContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. TOP WHITE PROFILE CARD
+          _buildProfileCard(),
+          const SizedBox(height: 12),
+
+          // 2. LIVE COASTAL MAP CARD
+          _buildLiveCoastalMapCard(),
+          const SizedBox(height: 12),
+
+          // 3. GPS COORDINATES CARD
+          _buildGpsCard(),
+          const SizedBox(height: 12),
+
+          // 4. PANDUAN 4 SUDUT FOTO (ANGLE) CARD
+          _buildAngleGuidelineCard(),
+          const SizedBox(height: 14),
+
+          // 4b. SENSOR ESP32 KUALITAS AIR (HANYA MUNCUL JIKA TERHUBUNG / ADA)
+          if (_esp32Service.isConnected) ...[
+            _buildEsp32ActiveBanner(),
+            const SizedBox(height: 14),
+          ],
+
+          // 5. TWO SIDE-BY-SIDE PHOTO & AI SCAN CARDS
+          _buildPhotoAndAiRow(),
+          const SizedBox(height: 18),
+
+          // 6. CONSERVATION GALLERY (DOKUMENTASI NYATA)
+          _buildConservationGallery(),
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }
@@ -1320,37 +1320,41 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
             Row(
               children: [
                 Expanded(
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.account_balance_wallet_outlined,
-                        color: Color(0xFF0D9488),
-                        size: 24,
-                      ),
-                      const SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'SALDO SURVEYOR',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF64748B),
+                  child: InkWell(
+                    onTap: () => setState(() => _selectedBottomIndex = 1),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.account_balance_wallet_outlined,
+                          color: Color(0xFF0D9488),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'SALDO SURVEYOR',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Rp ${_formatCurrency(_currentBalance)}',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F766E),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Rp ${_formatCurrency(_currentBalance)}',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F766E),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 Expanded(
@@ -1793,111 +1797,165 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // CONSERVATION GALLERY (DOKUMENTASI NYATA CITIZEN SCIENCE & RESTORASI)
+  // ---------------------------------------------------------------------------
   Widget _buildConservationGallery() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'CONSERVATION GALLERY',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: 0.8,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'CONSERVATION GALLERY',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 0.8,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF26E6D9).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF26E6D9), width: 1),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.photo_library_outlined, size: 12, color: Color(0xFF26E6D9)),
+                  SizedBox(width: 4),
+                  Text(
+                    '4 Dokumentasi Nyata',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF26E6D9),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
         SizedBox(
-          height: 95,
+          height: 160,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            itemCount: 4,
-            separatorBuilder: (context, index) => const SizedBox(width: 10),
+            itemCount: _conservationItems.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
-              final speciesNames = [
-                'Enhalus acoroides',
-                'Thalassia hemprichii',
-                'Halodule uninervis',
-                'Syringodium isoetifolium',
-              ];
-              final carbonValues = [
-                'Karbon 148.5 T/Ha',
-                'Karbon 132.0 T/Ha',
-                'Karbon 118.4 T/Ha',
-                'Karbon 105.2 T/Ha',
-              ];
-
-              return Container(
-                width: 155,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      index % 2 == 0 ? const Color(0xFF0284C7) : const Color(0xFF0F766E),
-                      index % 2 == 0 ? const Color(0xFF0369A1) : const Color(0xFF115E59),
+              final item = _conservationItems[index];
+              return GestureDetector(
+                onTap: () => _showConservationDetailModal(item),
+                child: Container(
+                  width: 220,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
                     ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      right: -10,
-                      bottom: -10,
-                      child: Icon(
-                        Icons.waves,
-                        size: 70,
-                        color: Colors.white.withValues(alpha: 0.12),
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Stack(
+                      fit: StackFit.expand,
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              index == 0
-                                  ? Icons.eco
-                                  : (index == 1 ? Icons.water : Icons.nature),
-                              size: 16,
-                              color: Colors.white.withValues(alpha: 0.9),
+                        Image.asset(
+                          item.imagePath,
+                          fit: BoxFit.cover,
+                          errorBuilder: (ctx, err, stack) => Container(
+                            color: const Color(0xFF0F4C81),
+                            child: const Center(
+                              child: Icon(Icons.broken_image, color: Colors.white54),
                             ),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: Text(
-                                speciesNames[index],
+                          ),
+                        ),
+                        // Gradient shadow agar teks terbaca tajam
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.15),
+                                Colors.black.withValues(alpha: 0.8),
+                              ],
+                              stops: const [0.35, 1.0],
+                            ),
+                          ),
+                        ),
+                        // Badge Kategori di Kiri Atas
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0096C7).withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              item.category,
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Konten Teks di Bawah
+                        Positioned(
+                          bottom: 10,
+                          left: 10,
+                          right: 10,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item.title,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontSize: 10.5,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          carbonValues[index],
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontWeight: FontWeight.w600,
+                              const SizedBox(height: 3),
+                              Row(
+                                children: [
+                                  const Icon(Icons.eco_rounded, size: 12, color: Color(0xFF34D399)),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      item.carbonInfo,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF6EE7B7),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               );
             },
@@ -1907,18 +1965,1245 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
     );
   }
 
+  void _showConservationDetailModal(ConservationGalleryItem item) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 200,
+                child: Image.asset(
+                  item.imagePath,
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, stack) => Container(
+                    color: const Color(0xFF0F4C81),
+                    child: const Center(child: Icon(Icons.broken_image, color: Colors.white54)),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            item.category,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7)),
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            item.carbonInfo,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      item.title,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Spesies: ${item.species}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF0D9488)),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      item.description,
+                      style: const TextStyle(fontSize: 12.5, height: 1.5, color: Color(0xFF475569)),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF006994),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Tutup Dokumentasi'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // TAB 1: SALDO (DOMPET SURVEYOR MANDIRI - BUKAN POPUP!)
+  // ---------------------------------------------------------------------------
+  Widget _buildSaldoContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Bar
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 10),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dompet Insentif Surveyor',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  Text(
+                    'Hasil monitoring lamun & sekuestrasi Blue Carbon',
+                    style: TextStyle(fontSize: 11, color: Color(0xFFE2E8F0)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Primary Card: Saldo Aktif
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF006994), Color(0xFF01386A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'TOTAL SALDO AKTIF',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8), letterSpacing: 1.1),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Rp ${_formatCurrency(_currentBalance)}',
+                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildMiniStat('Insentif / Foto', 'Rp 25.000'),
+                      _buildMiniStat('Kuota Hari Ini', '$_remainingPhotos / $_maxDailyPhotos'),
+                      _buildMiniStat('Bebas Biaya', '100% Gratis'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // IN-PAGE FORM PENCAIRAN SALDO (BUKAN POPUP!)
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.payments_rounded, color: Color(0xFF006994), size: 22),
+                    SizedBox(width: 8),
+                    Text(
+                      'Tarik Saldo Insentif Langsung',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Pencairan instan tanpa biaya admin ke rekening atau e-wallet nelayan.',
+                  style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 14),
+
+                // Input Nominal
+                TextField(
+                  controller: _withdrawAmountController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Nominal Penarikan (Rp)',
+                    prefixIcon: const Icon(Icons.monetization_on_outlined, color: Color(0xFF006994)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                // Pilihan Cepat Nominal
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    _buildNominalChip(25000),
+                    _buildNominalChip(50000),
+                    _buildNominalChip(100000),
+                    _buildNominalChip(200000),
+                    ActionChip(
+                      label: const Text('Tarik Semua', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF006994))),
+                      backgroundColor: const Color(0xFFE0F2FE),
+                      onPressed: () {
+                        setState(() {
+                          _withdrawAmountController.text = _currentBalance.toString();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Metode Pencairan
+                const Text('Pilih Metode Pencairan:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155))),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: ['DANA', 'GoPay', 'OVO', 'Bank BRI', 'Bank Mandiri', 'Bank BCA'].map((method) {
+                    final isSelected = _selectedWithdrawMethod == method;
+                    return ChoiceChip(
+                      label: Text(method),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFF006994),
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : const Color(0xFF334155),
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 12,
+                      ),
+                      onSelected: (val) {
+                        if (val) setState(() => _selectedWithdrawMethod = method);
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 14),
+
+                // Nomor Akun Tujuan
+                Text(
+                  _selectedWithdrawMethod.startsWith('Bank') ? 'Nomor Rekening Tujuan:' : 'Nomor Handphone E-Wallet:',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _selectedWithdrawMethod.startsWith('Bank') ? _rekeningBri : _rekeningDana,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                      ),
+                      const Text('(Tersimpan)', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Tombol Tarik Saldo
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isProcessingWithdraw ? null : _handleInPageWithdrawal,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF006994),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _isProcessingWithdraw
+                        ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text('Tarik Saldo Sekarang', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Riwayat Penarikan Saldo
+          _buildWithdrawalHistorySection(),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniStat(String label, String value) {
+    return Column(
+      children: [
+        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFFCBD5E1))),
+      ],
+    );
+  }
+
+  Widget _buildNominalChip(int amount) {
+    return ActionChip(
+      label: Text('Rp ${_formatCurrency(amount)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+      backgroundColor: const Color(0xFFF1F5F9),
+      onPressed: () {
+        setState(() {
+          _withdrawAmountController.text = amount.toString();
+        });
+      },
+    );
+  }
+
+  void _handleInPageWithdrawal() async {
+    final text = _withdrawAmountController.text.trim();
+    if (!RegExp(r'^\d+$').hasMatch(text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nominal penarikan harus berupa angka bulat positif.'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+    final amount = int.tryParse(text) ?? 0;
+    if (amount <= 0 || amount > _currentBalance || amount < 25000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            amount > _currentBalance
+                ? 'Nominal melebihi saldo tersedia.'
+                : 'Minimal penarikan adalah Rp 25.000.',
+          ),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isProcessingWithdraw = true);
+    await Future.delayed(const Duration(milliseconds: 600));
+
+    if (!mounted) return;
+    setState(() {
+      _currentBalance -= amount;
+      _withdrawalHistory.insert(
+        0,
+        WithdrawalRecord(
+          id: 'WD-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+          amount: amount,
+          channel: _selectedWithdrawMethod,
+          destinationNumber: _selectedWithdrawMethod.startsWith('Bank') ? _rekeningBri : _rekeningDana,
+          timestamp: DateTime.now(),
+          status: 'Berhasil',
+        ),
+      );
+      _isProcessingWithdraw = false;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Pencairan Rp ${_formatCurrency(amount)} ke $_selectedWithdrawMethod berhasil diproses!',
+        ),
+        backgroundColor: const Color(0xFF059669),
+      ),
+    );
+  }
+
+  Widget _buildWithdrawalHistorySection() {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Riwayat Penarikan Dana',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+          ),
+          const SizedBox(height: 10),
+          if (_withdrawalHistory.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.0),
+              child: Center(
+                child: Text('Belum ada riwayat penarikan dana.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _withdrawalHistory.length,
+              separatorBuilder: (ctx, i) => const Divider(height: 18, color: Color(0xFFF1F5F9)),
+              itemBuilder: (ctx, i) {
+                final item = _withdrawalHistory[i];
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.arrow_downward_rounded, color: Color(0xFF15803D), size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.channel,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            ),
+                            Text(
+                              item.destinationNumber,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '-Rp ${_formatCurrency(item.amount)}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('Berhasil', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // TAB 2: PERANGKAT IOT (ESP32 VIA WIFI)
+  // ---------------------------------------------------------------------------
+  Widget _buildIoTContent() {
+    final data = _esp32Service.currentData;
+    final isConnected = _esp32Service.isConnected;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.wifi_tethering_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 10),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Perangkat IoT ESP32 (WiFi)',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  Text(
+                    'Sensor Kualitas Air & Parameter Karbon Biru',
+                    style: TextStyle(fontSize: 11, color: Color(0xFFE2E8F0)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Box Status Koneksi WiFi ESP32
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          isConnected ? Icons.wifi : Icons.wifi_off,
+                          color: isConnected ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isConnected ? 'Terhubung via WiFi' : 'WiFi Terputus',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: isConnected ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isConnected ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        isConnected ? 'ONLINE' : 'STANDBY',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: isConnected ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Input IP & SSID
+                TextField(
+                  controller: _iotWifiIpController,
+                  decoration: InputDecoration(
+                    labelText: 'Alamat IP ESP32 (WiFi)',
+                    hintText: '192.168.4.1',
+                    prefixIcon: const Icon(Icons.settings_ethernet, color: Color(0xFF006994)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _iotWifiSsidController,
+                  decoration: InputDecoration(
+                    labelText: 'SSID Hotspot / Jaringan WiFi',
+                    hintText: 'ESP32_SEAVIS_NODE_01',
+                    prefixIcon: const Icon(Icons.wifi_outlined, color: Color(0xFF006994)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Tombol Hubungkan / Putuskan
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          if (isConnected) {
+                            _esp32Service.disconnectEsp32();
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Koneksi WiFi ESP32 diputuskan.')),
+                            );
+                          } else {
+                            await _esp32Service.connectViaWifi(
+                              ipAddress: _iotWifiIpController.text,
+                              ssid: _iotWifiSsidController.text,
+                            );
+                            if (!mounted) return;
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Berhasil terhubung ke modul ESP32 via WiFi!'),
+                                backgroundColor: Color(0xFF059669),
+                              ),
+                            );
+                          }
+                        },
+                        icon: Icon(isConnected ? Icons.link_off : Icons.wifi_protected_setup_rounded),
+                        label: Text(isConnected ? 'Putuskan WiFi' : 'Hubungkan WiFi ESP32'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isConnected ? const Color(0xFFDC2626) : const Color(0xFF006994),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Status Karbon Perairan Card
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF006994), Color(0xFF0F766E)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.eco_rounded, color: Color(0xFF34D399), size: 28),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'STATUS LINGKUNGAN PERAIRAN',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF99F6E4), letterSpacing: 1),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'ZONA KARBON ${data.waterCarbonStatus}',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Kualitas air mendukung fotosintesis lamun & penyerapan karbon biru.',
+                        style: TextStyle(fontSize: 11, color: Color(0xFFCCFBF1)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Grid Telemetri Sensor 4 Metrik
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.35,
+            children: [
+              _buildSensorMetricTile(
+                title: 'pH Air Laut',
+                value: isConnected && data.ph != null ? data.ph!.toStringAsFixed(2) : '8.10',
+                unit: 'pH',
+                status: 'Optimal Basa Pesisir',
+                icon: Icons.science_rounded,
+                iconColor: const Color(0xFF0284C7),
+              ),
+              _buildSensorMetricTile(
+                title: 'Suhu Air Laut',
+                value: isConnected && data.waterTempC != null ? data.waterTempC!.toStringAsFixed(1) : '28.5',
+                unit: '°C',
+                status: 'Tropis Hangat',
+                icon: Icons.thermostat_rounded,
+                iconColor: const Color(0xFFEA580C),
+              ),
+              _buildSensorMetricTile(
+                title: 'TDS / Salinitas',
+                value: isConnected && data.tdsPpm != null ? data.tdsPpm!.toStringAsFixed(0) : '345',
+                unit: 'ppm',
+                status: 'Kadar Garam Stabil',
+                icon: Icons.water_drop_rounded,
+                iconColor: const Color(0xFF0D9488),
+              ),
+              _buildSensorMetricTile(
+                title: 'Kekeruhan',
+                value: isConnected && data.turbidityNtu != null ? data.turbidityNtu!.toStringAsFixed(1) : '3.4',
+                unit: 'NTU',
+                status: 'Sangat Jernih',
+                icon: Icons.opacity_rounded,
+                iconColor: const Color(0xFF8B5CF6),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Card Catatan Opsional
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, color: Colors.white70, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Perangkat ESP32 berfungsi sebagai alat pendukung opsional. Laporan pemantauan lamun tetap dapat disubmit meskipun ESP32 offline.',
+                    style: TextStyle(fontSize: 11, color: Colors.white, height: 1.3),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSensorMetricTile({
+    required String title,
+    required String value,
+    required String unit,
+    required String status,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+              ),
+              Icon(icon, color: iconColor, size: 18),
+            ],
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                value,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                unit,
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+          Text(
+            status,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: iconColor),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // TAB 3: HISTORY (RIWAYAT LAPORAN GOOGLE SHEETS & CLOUDINARY)
+  // ---------------------------------------------------------------------------
+  Widget _buildHistoryContent() {
+    return const SheetsHistoryScreen();
+  }
+
+  // ---------------------------------------------------------------------------
+  // TAB 4: AI CHAT (ASISTEN CERDAS SEAVIS)
+  // ---------------------------------------------------------------------------
+  Widget _buildAiChatContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 10),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Asisten AI SEAVIS',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  Text(
+                    'Konsultasi identifikasi lamun & perhitungan Blue Carbon',
+                    style: TextStyle(fontSize: 11, color: Color(0xFFE2E8F0)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.smart_toy_rounded, color: Color(0xFF8E24AA), size: 24),
+                    SizedBox(width: 8),
+                    Text(
+                      'Rekomendasi Pemantauan AI',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Halo Pak Nelayan! AI kami siap membantu verifikasi jenis spesies padang lamun, panduan pemotretan 4 sudut, dan kalkulasi estimasi serapan karbon di pesisir Anda.',
+                  style: TextStyle(fontSize: 12.5, height: 1.5, color: Color(0xFF334155)),
+                ),
+                const SizedBox(height: 14),
+
+                const Text('Topik Tanya Jawab Populer:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildAiQuestionChip('Cara membedakan Enhalus & Thalassia'),
+                    _buildAiQuestionChip('Tips agar foto lolos verifikasi 80%'),
+                    _buildAiQuestionChip('Berapa serapan karbon rata-rata per ha?'),
+                    _buildAiQuestionChip('Waktu terbaik survei air surut'),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() => _selectedBottomIndex = 0);
+                    },
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: const Text('Buka Kamera & Mulai Deteksi Lamun'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF006994),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAiQuestionChip(String text) {
+    return ActionChip(
+      label: Text(text, style: const TextStyle(fontSize: 11, color: Color(0xFF006994))),
+      backgroundColor: const Color(0xFFF0F9FF),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      onPressed: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Jawaban AI: "$text" - AI merekomendasikan survei saat surut purnama dengan cahaya optimal.'),
+            backgroundColor: const Color(0xFF006994),
+          ),
+        );
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // TAB 5: PROFILE (DIBIKIN SIMPLE & RINGKAS SESUAI PERMINTAAN USER)
+  // ---------------------------------------------------------------------------
+  Widget _buildProfileContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Bar
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.person_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 10),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Profil Field Surveyor',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  Text(
+                    'Informasi akun mitra konservasi pesisir',
+                    style: TextStyle(fontSize: 11, color: Color(0xFFE2E8F0)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // Kartu Identitas Nelayan (Simple & Clean)
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE0F2FE),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          _fishermanName.isNotEmpty ? _fishermanName[0].toUpperCase() : 'N',
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF006994)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _fishermanName,
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Email: $_fishermanEmail',
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          ),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFDCFCE7),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'Surveyor Aktif (Online)',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24, thickness: 1, color: Color(0xFFF1F5F9)),
+
+                // 3 Ringkasan Statistik
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildSimpleProfileStat('Laporan', '${_todayPhotos.length + 10}'),
+                    _buildSimpleProfileStat('Saldo', 'Rp ${_formatCurrency(_currentBalance)}'),
+                    _buildSimpleProfileStat('Akurasi AI', '94%'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Detail Kemitraan & Rekening (Simple)
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Informasi Lapangan & Kemitraan',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                ),
+                const SizedBox(height: 12),
+                _buildSimpleInfoRow(Icons.badge_outlined, 'ID Kemitraan', 'SV-NL-2025-0849'),
+                _buildSimpleInfoRow(Icons.calendar_today_outlined, 'Lama Kerja Sama', '1 Tahun 4 Bulan (Sejak 2025)'),
+                _buildSimpleInfoRow(Icons.place_outlined, 'Pangkalan Pantai', 'Pantai Bandengan, Jepara'),
+                _buildSimpleInfoRow(Icons.directions_boat_outlined, 'Nama Kapal / Armada', 'KM Samudera Berkah (5 GT)'),
+                _buildSimpleInfoRow(Icons.account_balance_outlined, 'Bank BRI', _rekeningBri),
+                _buildSimpleInfoRow(Icons.wallet_outlined, 'E-Wallet DANA', _rekeningDana),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Tombol Buka Detail & Edit Profil Lengkap
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ProfilePage(
+                    user: widget.user ?? UserModel(name: _fishermanName, email: _fishermanEmail),
+                    currentBalance: _currentBalance,
+                    onProfileUpdated: (newName, newPhone, newPort) {
+                      setState(() {
+                        _fishermanName = newName;
+                      });
+                    },
+                    onBalanceUpdated: (newBal) {
+                      setState(() {
+                        _currentBalance = newBal;
+                      });
+                    },
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.edit_note, color: Colors.white, size: 20),
+            label: const Text(
+              'Edit Data Profil & Armada Lengkap',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF006994),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Tombol Keluar (Logout)
+          OutlinedButton.icon(
+            onPressed: () {
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+                (route) => false,
+              );
+            },
+            icon: const Icon(Icons.logout_rounded, color: Colors.white, size: 18),
+            label: const Text(
+              'Keluar dari Akun SEAVIS',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Colors.white60, width: 1.2),
+              backgroundColor: Colors.black.withValues(alpha: 0.2),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimpleProfileStat(String label, String value) {
+    return Column(
+      children: [
+        Text(value, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF006994))),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+      ],
+    );
+  }
+
+  Widget _buildSimpleInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: const Color(0xFF006994)),
+          const SizedBox(width: 10),
+          Text(label, style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B))),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // BOTTOM NAVIGATION BAR (HEADER BAWAH SEAVIS)
+  // ---------------------------------------------------------------------------
   Widget _buildBottomNavBar() {
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF111417),
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      padding: const EdgeInsets.only(top: 10, bottom: 12, left: 16, right: 16),
+      padding: const EdgeInsets.only(top: 10, bottom: 12, left: 10, right: 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Text(
-            'SEAGRASS GUARD v1.0',
+            'SEAVIS v1.0',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.bold,
@@ -1933,26 +3218,38 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
               _buildNavItem(
                 icon: Icons.assignment_outlined,
                 label: 'Form',
-                isActive: true,
-                onTap: () {},
+                isActive: _selectedBottomIndex == 0,
+                onTap: () => setState(() => _selectedBottomIndex = 0),
               ),
               _buildNavItem(
                 icon: Icons.account_balance_wallet_outlined,
                 label: 'Saldo',
-                isActive: false,
+                isActive: _selectedBottomIndex == 1,
                 onTap: _openCashOutModal,
               ),
               _buildNavItem(
-                icon: Icons.history,
+                icon: Icons.wifi_tethering_rounded,
+                label: 'Perangkat IoT',
+                isActive: _selectedBottomIndex == 2,
+                onTap: () => setState(() => _selectedBottomIndex = 2),
+              ),
+              _buildNavItem(
+                icon: Icons.history_rounded,
                 label: 'History',
-                isActive: false,
+                isActive: _selectedBottomIndex == 3,
                 onTap: _openSheetsHistory,
               ),
               _buildNavItem(
-                icon: Icons.auto_awesome,
+                icon: Icons.auto_awesome_rounded,
                 label: 'AI Chat',
-                isActive: false,
+                isActive: _selectedBottomIndex == 4,
                 onTap: _openAiChat,
+              ),
+              _buildNavItem(
+                icon: Icons.person_outline_rounded,
+                label: 'Profil',
+                isActive: _selectedBottomIndex == 5,
+                onTap: _openProfilePage,
               ),
             ],
           ),
@@ -1975,12 +3272,12 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 24),
+          Icon(icon, color: color, size: 22),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
               color: color,
             ),
