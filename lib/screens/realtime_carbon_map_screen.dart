@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/indonesian_seagrass_site.dart';
 import '../services/location_map_service.dart';
 
@@ -196,6 +197,11 @@ class _RealtimeCarbonMapScreenState extends State<RealtimeCarbonMapScreen>
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: 'Katalog Semua Pantai Lamun Indonesia',
+            icon: const Icon(Icons.list_alt_rounded),
+            onPressed: _showAllBeachesModal,
+          ),
           IconButton(
             tooltip: 'Pusatkan ke Lokasi Saya (GPS)',
             icon: Icon(
@@ -702,8 +708,254 @@ class _RealtimeCarbonMapScreenState extends State<RealtimeCarbonMapScreen>
               ],
             ),
           ),
+
+          const SizedBox(height: 10),
+
+          // Tombol Buka di Google Maps Asli (Satelit & Navigasi Rute)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _openInGoogleMaps(site),
+              icon: const Icon(Icons.travel_explore_outlined, size: 16),
+              label: const Text(
+                'Buka Lokasi di Google Maps Asli (Satelit)',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF006994),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openInGoogleMaps(IndonesianSeagrassSite site) async {
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${site.latitude},${site.longitude}',
+    );
+    try {
+      final launched = await launchUrl(url, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Membuka ${site.name}: (${site.latitude}, ${site.longitude})'),
+            backgroundColor: const Color(0xFF006994),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Koordinat GPS: ${site.latitude}, ${site.longitude} (${site.name})'),
+            backgroundColor: const Color(0xFF006994),
+          ),
+        );
+      }
+    }
+  }
+
+  void _focusOnSite(IndonesianSeagrassSite site) {
+    final siteOffset = _geoToCanvas(site.latitude, site.longitude);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height * 0.55;
+
+    const scale = 3.0;
+    final targetX = -(siteOffset.dx * scale - screenWidth / 2);
+    final targetY = -(siteOffset.dy * scale - screenHeight / 2);
+
+    final matrix = Matrix4.identity();
+    matrix.setEntry(0, 0, scale);
+    matrix.setEntry(1, 1, scale);
+    matrix.setEntry(0, 3, targetX);
+    matrix.setEntry(1, 3, targetY);
+
+    _transformationController.value = matrix;
+  }
+
+  void _showAllBeachesModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF0F233E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.75,
+          minChildSize: 0.4,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF334E68),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.beach_access_rounded, color: Color(0xFF38BDF8), size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Sebaran Padang Lamun Indonesia (${_allSites.length} Pantai)',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const Text(
+                              'Data Asli BRIN & LIPI • Bukan Simulasi',
+                              style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(color: Color(0xFF1E3A5F), height: 1),
+                Expanded(
+                  child: ListView.separated(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _allSites.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final s = _allSites[index];
+                      final isSelected = _selectedSite?.id == s.id;
+                      final isHigh = s.estimatedCarbonTonHa >= 145.0;
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF1E3A5F) : const Color(0xFF0A192F),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF38BDF8)
+                                : (isHigh ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    s.name,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: (isHigh ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '${s.estimatedCarbonTonHa} T/Ha',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: isHigh ? const Color(0xFF34D399) : const Color(0xFFFBBF24),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${s.regency}, ${s.province} (${s.islandGroup})',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Spesies: ${s.dominantSpecies} • Tutupan: ${s.coveragePercentage}% (${s.conditionStatus})',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFFCBD5E1)),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      setState(() {
+                                        _selectedSite = s;
+                                      });
+                                      _focusOnSite(s);
+                                    },
+                                    icon: const Icon(Icons.center_focus_strong, size: 14),
+                                    label: const Text('Fokus di Peta', style: TextStyle(fontSize: 11)),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: const Color(0xFF38BDF8),
+                                      side: const BorderSide(color: Color(0xFF38BDF8)),
+                                      padding: const EdgeInsets.symmetric(vertical: 6),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      _openInGoogleMaps(s);
+                                    },
+                                    icon: const Icon(Icons.travel_explore, size: 14),
+                                    label: const Text('Google Maps', style: TextStyle(fontSize: 11)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF006994),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 6),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
