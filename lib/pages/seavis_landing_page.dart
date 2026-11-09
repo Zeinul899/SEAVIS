@@ -63,6 +63,8 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   int _selectedBottomIndex = 0; // 0 = Form, 1 = Saldo, 2 = Perangkat IoT, 3 = History, 4 = AI Chat, 5 = Profil
   final TextEditingController _iotWifiIpController = TextEditingController(text: '192.168.4.1');
   final TextEditingController _iotWifiSsidController = TextEditingController(text: 'ESP32_SEAVIS_NODE_01');
+  bool _showManualWifiConfig = false;
+  bool _isAutoConnecting = false;
 
   // Koleksi Dokumentasi Nyata Konservasi Padang Lamun
   final List<ConservationGalleryItem> _conservationItems = const [
@@ -2476,11 +2478,15 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // TAB 2: PERANGKAT IOT (ESP32 VIA WIFI)
+  // TAB 2: PERANGKAT IOT (ESP32 VIA WIFI - AUTO CONNECT & TELEMETRI RIIL)
   // ---------------------------------------------------------------------------
   Widget _buildIoTContent() {
     final data = _esp32Service.currentData;
     final isConnected = _esp32Service.isConnected;
+    final phAssess = Esp32SupportService.evaluatePh(data.ph);
+    final turbidityAssess = Esp32SupportService.evaluateTurbidity(data.turbidityNtu);
+    final tdsAssess = Esp32SupportService.evaluateTds(data.tdsPpm);
+    final tempAssess = Esp32SupportService.evaluateTemperature(data.waterTempC);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -2516,17 +2522,18 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
           ),
           const SizedBox(height: 14),
 
-          // Box Status Koneksi WiFi ESP32
+          // Box Status Koneksi WiFi ESP32 (Auto-Connect & Konfigurasi)
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
@@ -2573,73 +2580,228 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                 ),
                 const SizedBox(height: 14),
 
-                // Input IP & SSID
-                TextField(
-                  controller: _iotWifiIpController,
-                  decoration: InputDecoration(
-                    labelText: 'Alamat IP ESP32 (WiFi)',
-                    hintText: '192.168.4.1',
-                    prefixIcon: const Icon(Icons.settings_ethernet, color: Color(0xFF006994)),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _iotWifiSsidController,
-                  decoration: InputDecoration(
-                    labelText: 'SSID Hotspot / Jaringan WiFi',
-                    hintText: 'ESP32_SEAVIS_NODE_01',
-                    prefixIcon: const Icon(Icons.wifi_outlined, color: Color(0xFF006994)),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  ),
-                ),
-                const SizedBox(height: 14),
+                if (!isConnected) ...[
+                  // Tombol Otomatis Terhubung (Auto-Connect 1-Klik)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isAutoConnecting
+                          ? null
+                          : () async {
+                              setState(() => _isAutoConnecting = true);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Menghubungkan otomatis ke ESP32 (IP 192.168.4.1)...'),
+                                  backgroundColor: Color(0xFF006994),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
 
-                // Tombol Hubungkan / Putuskan
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
+                              await _esp32Service.autoConnectWifi();
+                              if (!mounted) return;
+                              setState(() => _isAutoConnecting = false);
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Berhasil terhubung otomatis ke ESP32 via WiFi!'),
+                                  backgroundColor: Color(0xFF059669),
+                                ),
+                              );
+                            },
+                      icon: _isAutoConnecting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.wifi_protected_setup_rounded),
+                      label: Text(
+                        _isAutoConnecting ? 'Menghubungkan Otomatis...' : 'Auto-Connect WiFi ESP32 (Otomatis 1-Klik)',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF006994),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showManualWifiConfig = !_showManualWifiConfig;
+                        });
+                      },
+                      icon: Icon(
+                        _showManualWifiConfig ? Icons.expand_less : Icons.expand_more,
+                        size: 18,
+                        color: const Color(0xFF006994),
+                      ),
+                      label: Text(
+                        _showManualWifiConfig ? 'Tutup Pengaturan IP Manual' : 'Opsi Pengaturan IP / SSID Manual',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF006994), fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+
+                  // Form Pengaturan Manual (Bisa dibuka jika router menggunakan subnet khusus)
+                  if (_showManualWifiConfig) ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _iotWifiIpController,
+                      decoration: InputDecoration(
+                        labelText: 'Alamat IP ESP32 (WiFi)',
+                        hintText: '192.168.4.1',
+                        prefixIcon: const Icon(Icons.settings_ethernet, color: Color(0xFF006994)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _iotWifiSsidController,
+                      decoration: InputDecoration(
+                        labelText: 'SSID Hotspot / Jaringan WiFi',
+                        hintText: 'ESP32_SEAVIS_NODE_01',
+                        prefixIcon: const Icon(Icons.wifi_outlined, color: Color(0xFF006994)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
                         onPressed: () async {
-                          if (isConnected) {
-                            _esp32Service.disconnectEsp32();
-                            setState(() {});
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Koneksi WiFi ESP32 diputuskan.')),
-                            );
-                          } else {
-                            await _esp32Service.connectViaWifi(
-                              ipAddress: _iotWifiIpController.text,
-                              ssid: _iotWifiSsidController.text,
-                            );
-                            if (!mounted) return;
-                            setState(() {});
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Berhasil terhubung ke modul ESP32 via WiFi!'),
-                                backgroundColor: Color(0xFF059669),
-                              ),
-                            );
-                          }
+                          await _esp32Service.connectViaWifi(
+                            ipAddress: _iotWifiIpController.text,
+                            ssid: _iotWifiSsidController.text,
+                          );
+                          if (!mounted) return;
+                          setState(() {});
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Berhasil terhubung ke modul ESP32 via WiFi manual!'),
+                              backgroundColor: Color(0xFF059669),
+                            ),
+                          );
                         },
-                        icon: Icon(isConnected ? Icons.link_off : Icons.wifi_protected_setup_rounded),
-                        label: Text(isConnected ? 'Putuskan WiFi' : 'Hubungkan WiFi ESP32'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isConnected ? const Color(0xFFDC2626) : const Color(0xFF006994),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('Hubungkan dengan IP Manual Ini'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF006994),
+                          side: const BorderSide(color: Color(0xFF006994)),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ),
                   ],
-                ),
+                ] else ...[
+                  // Info Status Transmisi Riil Saat Terhubung
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF16A34A),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _esp32Service.lastStatusMessage,
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF166534)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Target Endpoint: http://${_esp32Service.wifiIp}/data • SSID: ${_esp32Service.wifiSsid}',
+                          style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569)),
+                        ),
+                        if (_esp32Service.lastReadingTime != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2.0),
+                            child: Text(
+                              'Pembaruan Data Terakhir: ${_esp32Service.lastReadingTime!.hour.toString().padLeft(2, '0')}:${_esp32Service.lastReadingTime!.minute.toString().padLeft(2, '0')}:${_esp32Service.lastReadingTime!.second.toString().padLeft(2, '0')} WIB',
+                              style: const TextStyle(fontSize: 10, color: Color(0xFF64748B)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Tombol Aksi: Segarkan Data Sensor & Putuskan WiFi
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Menyegarkan data sensor riil dari ESP32...'),
+                                duration: Duration(milliseconds: 700),
+                              ),
+                            );
+                            await _esp32Service.fetchRealTelemetryFromEsp32();
+                            if (!mounted) return;
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.refresh, size: 18),
+                          label: const Text('Segarkan Data'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF006994),
+                            side: const BorderSide(color: Color(0xFF006994)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            _esp32Service.disconnectEsp32();
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Koneksi WiFi ESP32 diputuskan.')),
+                            );
+                          },
+                          icon: const Icon(Icons.link_off, size: 18),
+                          label: const Text('Putuskan WiFi'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFDC2626),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -2706,32 +2868,36 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
                 title: 'pH Air Laut',
                 value: isConnected && data.ph != null ? data.ph!.toStringAsFixed(2) : '8.10',
                 unit: 'pH',
-                status: 'Optimal Basa Pesisir',
+                status: phAssess.status,
                 icon: Icons.science_outlined,
               ),
               _buildSensorMetricTile(
                 title: 'Suhu Air Laut',
                 value: isConnected && data.waterTempC != null ? data.waterTempC!.toStringAsFixed(1) : '28.5',
                 unit: '°C',
-                status: 'Tropis Hangat',
+                status: tempAssess.status,
                 icon: Icons.thermostat_outlined,
               ),
               _buildSensorMetricTile(
                 title: 'TDS / Salinitas',
                 value: isConnected && data.tdsPpm != null ? data.tdsPpm!.toStringAsFixed(0) : '345',
                 unit: 'ppm',
-                status: 'Kadar Garam Stabil',
+                status: tdsAssess.status,
                 icon: Icons.water_drop_outlined,
               ),
               _buildSensorMetricTile(
                 title: 'Kekeruhan',
                 value: isConnected && data.turbidityNtu != null ? data.turbidityNtu!.toStringAsFixed(1) : '3.4',
                 unit: 'NTU',
-                status: 'Sangat Jernih',
+                status: turbidityAssess.status,
                 icon: Icons.opacity_outlined,
               ),
             ],
           ),
+          const SizedBox(height: 14),
+
+          // KARTU PANDUAN LENGKAP: STANDAR BAKU MUTU AIR UNTUK PERTUMBUHAN PADANG LAMUN
+          _buildSeagrassWaterQualityGuideCard(),
           const SizedBox(height: 14),
 
           // Card Catatan Opsional
@@ -2756,6 +2922,185 @@ class _SeaVisLandingPageState extends State<SeaVisLandingPage> {
             ),
           ),
           const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+
+  /// Kartu Edukasi Ilmiah: Standar Minimal Air Bagus untuk Pertumbuhan Padang Lamun
+  Widget _buildSeagrassWaterQualityGuideCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: const Icon(Icons.biotech_outlined, color: Color(0xFF059669), size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Baku Mutu Air untuk Pertumbuhan Lamun',
+                      style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                    ),
+                    Text(
+                      'Standar Kepmen LH No. 51/2004 & Riset Oseanografi BRIN',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+
+          // 1. pH Air Laut
+          _buildBenchmarkParameterItem(
+            icon: Icons.science_outlined,
+            title: '1. Keasaman Air Laut (pH)',
+            idealRange: 'Ideal: 7.5 – 8.5 pH (Basa Stabil)',
+            importance: 'Padang lamun membutuhkan kondisi basa alami untuk mempertahankan kalsifikasi dinding sel dan efisiensi serapan nutrien.',
+            riskWarning: 'Batas Kritis: Jika pH < 7.5 (asidifikasi laut akibat pencemaran/limbah), klorofil daun rusak dan serapan karbon anjlok.',
+            isGood: true,
+          ),
+          const SizedBox(height: 10),
+
+          // 2. Kekeruhan Air (Turbidity)
+          _buildBenchmarkParameterItem(
+            icon: Icons.opacity_outlined,
+            title: '2. Kekeruhan Air (Turbidity)',
+            idealRange: 'Ideal: < 5.0 NTU (Air Sangat Jernih)',
+            importance: 'Air jernih menjamin penetrasi sinar matahari maksimum mencapai daun lamun untuk proses fotosintesis penyerapan Blue Carbon.',
+            riskWarning: 'Batas Kritis: Jika kekeruhan > 5.0 NTU (sedimentasi lumpur / erosi pantai), sinar matahari terhalang dan lamun mati lemas.',
+            isGood: true,
+          ),
+          const SizedBox(height: 10),
+
+          // 3. TDS & Salinitas
+          _buildBenchmarkParameterItem(
+            icon: Icons.water_drop_outlined,
+            title: '3. Salinitas & TDS Perairan',
+            idealRange: 'Ideal: 300 – 400 ppm (Salinitas 28 – 35 PSU)',
+            importance: 'Keseimbangan kadar garam menjaga regulasi tekanan osmotik sel lamun dan metabolisme kloroplas.',
+            riskWarning: 'Batas Kritis: Luapan air tawar ekstrem (< 20 PSU) memicu pembusukan rimpang dan menghambat perakaran.',
+            isGood: true,
+          ),
+          const SizedBox(height: 10),
+
+          // 4. Suhu Air Laut
+          _buildBenchmarkParameterItem(
+            icon: Icons.thermostat_outlined,
+            title: '4. Suhu Air Laut (DS18B20)',
+            idealRange: 'Ideal: 27.0°C – 32.0°C (Tropis Hangat)',
+            importance: 'Suhu hangat perairan pesisir tropis mengoptimalkan laju fotosintesis pembentukan biomassa karbon biru.',
+            riskWarning: 'Batas Kritis: Suhu air > 33.0°C berisiko menimbulkan stres termal dan pemutihan daun (seagrass bleaching).',
+            isGood: true,
+          ),
+          const SizedBox(height: 12),
+
+          // Rekomendasi Ringkas Lapangan
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F9FF),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFBAE6FD)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.tips_and_updates_outlined, color: Color(0xFF0284C7), size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Tips Lapangan: Air laut jernih (< 5 NTU) dan pH basa stabil (7.5 - 8.5) adalah indikator terbaik pertumbuhan padang lamun sehat.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF0369A1), height: 1.35),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBenchmarkParameterItem({
+    required IconData icon,
+    required String title,
+    required String idealRange,
+    required String importance,
+    required String riskWarning,
+    required bool isGood,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 16, color: const Color(0xFF006994)),
+                  const SizedBox(width: 6),
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCFCE7),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  idealRange,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            importance,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF334155), height: 1.35),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            riskWarning,
+            style: const TextStyle(fontSize: 10.5, color: Color(0xFFB45309), height: 1.3),
+          ),
         ],
       ),
     );
